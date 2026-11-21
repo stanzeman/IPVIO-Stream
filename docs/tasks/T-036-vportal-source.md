@@ -43,3 +43,12 @@ One `search` response, and a sample of a series that has several seasons if one 
 
 ## Tests
 Pure JVM tests for parsing, encoding and item mapping only. Gradle build and device test are not possible here; test steps will follow with the implementation.
+
+## Categories (design)
+- Source: the `items` of type `category` in the entry response; each carries its own `request` (`cmd:"flicks"`, `fid`, `offset`, `limit`, sometimes `vc`). The request object is replayed as is, plus `key`.
+- Group name in the app = category title (Russian, not translated). Entries of one category share this group.
+- Kind per entry comes from the item type, not from the category: `stream` -> Movies, `multistream` -> Series. So the "series" and "cartoon series" categories fill the Series tab and the others the Movies tab.
+- Skipped: `fid` 10001 ("continue watching", depends on the account's history). `fid` 10 (seasonal, `vc:1`) is kept but may change or disappear.
+- Items have no genre field; only year filters exist in `controls.filters`. They are not used in the first version.
+- Search: `controls.search.request` (`cmd:"search"`, `query`) could feed the app search later; response format unverified.
+- **Unverified:** how many titles a large category returns with `limit` 0 (only a category with 8 entries was seen). If it is thousands, paging by `offset`/`limit` is needed (the Stalker code already loads in chunks with pauses).
