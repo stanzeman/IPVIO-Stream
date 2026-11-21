@@ -14,7 +14,8 @@ and browse/play its movies and series like an Xtream or Stalker source. Live TV 
 - Items: `type:"stream"` (movie, has `url` = HLS master.m3u8, `img`, `year`, `duration`, `description`, `agelimit`, `fhd`/`4k`/`hdr`) and `type:"multistream"` (series, no `url`).
 - `{"cmd":"flick","fid":N}` on a movie -> same item plus `variants` {480,720,1080,auto} (HLS URLs). `getvmark` only stores the watch position.
 - Playback is plain HLS; the CDN host differs from the API host; segment redirects are handled by ExoPlayer.
-- **Unknown:** `flick` response of a `multistream` (seasons/episodes), behaviour of `limit`/`offset` paging, `search` response, whether the HLS URL expires.
+- `{"cmd":"flick","fid":<series fid>}` on a `multistream` -> `{"type":"multistream","title","img","imglr","fid","year","description","agelimit","items":[{"type":"stream","title":"<episode title>","request":{cmd:"flick",fid},"fid","url":<HLS master.m3u8>,"fhd","4k","hdr"}]}`. Verified with one series (22 episodes). Episodes carry their own `url`, so no extra call is needed to play. The episode list is flat: no season level was seen in this sample (**other series may differ, unverified**). Episode titles are Russian text such as "Series 1".
+- **Unknown:** behaviour of `limit`/`offset` paging (the app always sends `limit` 0), `search` response, whether HLS URLs expire, whether series with seasons exist.
 
 ## Design (mirrors Stalker, smallest change)
 - Stored login: `portal:` + base URL + `#key=` + KEY (encrypted like all logins). New `PortalLogic.kt` (pure, no Android): parse the pasted string, encode/decode, map JSON items to list entries.
@@ -29,7 +30,7 @@ and browse/play its movies and series like an Xtream or Stalker source. Live TV 
 ## Risks
 - Key is a credential: never logged, masked in errors (CLAUDE.md section 10).
 - Plain HTTP portal: needs the existing http consent flow (T-026-tls-consent).
-- Series format unknown; protected IPTV core touched.
+- Season structure unverified; protected IPTV core touched.
 
 ## Acceptance criteria
 1. Pasted portal string is accepted, malformed strings are rejected without a crash.
@@ -37,8 +38,8 @@ and browse/play its movies and series like an Xtream or Stalker source. Live TV 
 3. A series opens with seasons and episodes and plays.
 4. Existing Xtream, Stalker and M3U sources behave as before.
 
-## Blocking input from the maintainer/user
-Redacted sample of `{"cmd":"flick","fid":<multistream id>}`, and one `search` response.
+## Open input (not blocking)
+One `search` response, and a sample of a series that has several seasons if one exists.
 
 ## Tests
 Pure JVM tests for parsing, encoding and item mapping only. Gradle build and device test are not possible here; test steps will follow with the implementation.
