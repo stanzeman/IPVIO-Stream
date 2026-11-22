@@ -176,4 +176,43 @@ http://h/x
         assertFalse(LoadLogic.retriesSequentially(java.util.concurrent.CancellationException("abort")))
         assertFalse(LoadLogic.retriesSequentially(null))
     }
+
+    @Test
+    fun extGrpLineGivesTheCategory() {
+        assertEquals("Общие", LoadLogic.extGroup("#EXTGRP:Общие"))
+        assertEquals("News", LoadLogic.extGroup("  #extgrp: News  "))
+        assertNull(LoadLogic.extGroup("#EXTGRP:   "))
+        assertNull(LoadLogic.extGroup("#EXTINF:-1,Name"))
+    }
+
+    @Test
+    fun groupTitleWinsOverExtGrp() {
+        assertEquals("A", LoadLogic.pickGroup("A", "B"))
+        assertEquals("B", LoadLogic.pickGroup("", "B"))
+        assertEquals("B", LoadLogic.pickGroup(null, "B"))
+        assertEquals("Sonstige", LoadLogic.pickGroup(null, null))
+    }
+
+    @Test
+    fun parserTakesCategoryFromExtGrpAfterOrBeforeExtinf() {
+        val m3u = """
+            #EXTM3U
+            #EXTINF:0 tvg-rec="0",One
+            #EXTGRP:Alpha
+            http://h/live/1
+            #EXTGRP:Beta
+            #EXTINF:0,Two
+            http://h/live/2
+            #EXTINF:0 group-title="Gamma",Three
+            #EXTGRP:Ignored
+            http://h/live/3
+            #EXTINF:0,Four
+            http://h/live/4
+        """.trimIndent()
+        val g = M3uParser.parse(m3u).associate { it.title to it.group }
+        assertEquals("Alpha", g["One"])
+        assertEquals("Beta", g["Two"])
+        assertEquals("Gamma", g["Three"])
+        assertEquals("Sonstige", g["Four"])
+    }
 }

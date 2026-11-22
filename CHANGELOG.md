@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Live TV categories: lists that name the category on a separate line ("#EXTGRP:name" under or above each channel, instead of a group-title attribute) now show their categories. Before, all such channels ended up under "Other". A group-title attribute still wins when both are present. Reload the playlist once after the update. Not device tested yet
 
 ## 1.4.7 (versionCode 13)
 - Live TV: playback over a connection without encryption (certificate does not match the address, you agreed) is repaired. The agreed host now goes straight to http instead of failing over https first before every request and every video segment, and addresses with characters such as "%", "|" or spaces are no longer re-encoded or rejected when switching to http. Reload the channel once if it still shows "connection stalled". Not device tested yet
