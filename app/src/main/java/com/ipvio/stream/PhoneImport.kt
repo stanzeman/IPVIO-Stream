@@ -33,6 +33,8 @@ object PhoneImportLogic {
     /** Validates input; null = invalid. */
     fun toInput(f: Map<String, String>): PhoneInput? {
         val url = f["url"].orEmpty().trim()
+        // A key-based video portal ("portal::[key:…]http://…/api/v1/", T-036) is also a valid address
+        PortalLogic.parse(url)?.let { return PhoneInput(it.encode(), "", "", "") }
         if (url.isNotEmpty()) return if (url.startsWith("http://") || url.startsWith("https://")) PhoneInput(
             url, "", "", ""
         ) else null

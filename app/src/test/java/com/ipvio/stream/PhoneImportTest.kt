@@ -19,6 +19,15 @@ class PhoneImportTest {
         assertNull(PhoneImportLogic.toInput(emptyMap()))
     }
 
+    @Test fun portalTextIsAcceptedFromThePhone() {
+        val t = "portal::[key:aaaabbbbcccc-0123456789]http://portal.example.test/api/v1/"
+        val i = PhoneImportLogic.toInput(mapOf("url" to " $t "))!!
+        assertEquals(t, i.url)
+        assertFalse(i.isXtream)
+        assertNull(PhoneImportLogic.toInput(mapOf("url" to "portal::[key:aaaabbbbcccc-0123456789]ftp://x")))
+        assertNull(PhoneImportLogic.toInput(mapOf("url" to "portal::nothing")))
+    }
+
     @Test fun codeHatVierStellen() {
         repeat(50) { assertEquals(4, PhoneImportLogic.newCode(java.util.Random(it.toLong())).length) }
     }
