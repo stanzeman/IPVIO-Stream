@@ -25,6 +25,8 @@ object PlaylistLogic {
         if (u.isEmpty() || u.length > MAX_LEN) return null
         // Stalker portal (portal address + MAC), see StalkerLogic
         if (StalkerLogic.isSource(u)) return StalkerLogic.parse(u)?.encode()
+        // Key-based video portal ("portal::[key:…]http://…/api/v1/"), see PortalLogic
+        if (PortalLogic.isSource(u)) return PortalLogic.parse(u)?.encode()
         // Uploaded playlist file in the app folder
         if (u.startsWith("file:///")) return u.takeIf { it.contains("/files/imports/") && it.endsWith(".m3u", true) && !it.contains("..") }
         val noCred = u.replaceFirst(Regex("""^(https?://)[^/@\s]*@""", RegexOption.IGNORE_CASE), "$1")

@@ -28,7 +28,7 @@ Automatic checks:
 | T5 | Dictionary consistency (`DictConsistencyTest`) | exists; extend when languages are added (pt-BR and zh are in open PRs) |
 | T6 | Snapshot of SharedPreferences store names and keys against a committed list (protects user data, CLAUDE.md section 5) | open |
 | T7 | Every store name written by a `prefs()` helper is listed in `Backup.NAMES` (ADR 0003) | open |
-| T8 | Playlist parsers for M3U, Xtream and Stalker, including cut-off downloads | partly (`ProviderLogicTest`, `StalkerLinkTest`); cut-off case open |
+| T8 | Playlist parsers for M3U, Xtream, Stalker and key-based portals, including cut-off downloads | partly (`ProviderLogicTest`, `StalkerLinkTest`, `PortalLogicTest`); cut-off case open |
 | T9 | Phone remote: 4-digit access code and failed-attempt counter | partly (`RemoteLogicTest`); counter test open |
 | T10 | Backup JSON round trip (export, then import) | open |
 | T11 | Favorite order, playlist mode switch and settings reset logic | exists (`FavOrderLogicTest`, `AddFlowLogicTest`, `SettingsResetLogicTest`) |

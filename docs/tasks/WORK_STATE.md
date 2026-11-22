@@ -1,3 +1,9 @@
+Last update: 2026-11-22 (T-036 vportal source). Read `CLAUDE.md` first, then this file.
+
+## Current task (22 Nov 2026)
+
+T-036 (key-based video portal as a playlist source): implemented on branch `feat/T-036-vportal-source` from `dev`; task file `docs/tasks/T-036-vportal-source.md` (design, device test steps). 18 new JVM tests plus the Stalker and playlist tests ran green (51/51, compiled with the Kotlin compiler outside Gradle). **Not built with Gradle, not device tested.** Needs maintainer approval of the plan (IPTV core). Next: build in Android Studio, run the device steps, then PR into `dev`.
+
 Last update: 2026-11-21 (T-034 performance regression of 1.4.4). Read `CLAUDE.md` first, then this file.
 
 ## Current task (21 Nov 2026)

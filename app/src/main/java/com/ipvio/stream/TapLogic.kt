@@ -40,7 +40,8 @@ object TapLogic {
 
     /** Can this address run through the buffer? Only continuous streams (TS), no playlists (HLS/DASH) or files. */
     fun tappable(url: String): Boolean {
-        val u = url.lowercase().substringBefore('?')
+        // A fragment ("#…") is never sent to the server; portal movies carry one (PortalLogic.MOVIE_MARK)
+        val u = url.lowercase().substringBefore('#').substringBefore('?')
         if (!u.startsWith("http://") && !u.startsWith("https://")) return false
         if (u.endsWith(".m3u8") || u.endsWith(".m3u") || u.endsWith(".mpd") || u.endsWith(".mp4") || u.endsWith(".mkv")) return false
         return true

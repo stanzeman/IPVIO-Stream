@@ -446,7 +446,7 @@ object PlaylistStore {
     fun hostOf(url: String): String {
         if (url.startsWith("file://")) return url.substringAfterLast('/').substringBeforeLast('.').ifBlank { "Playlist" }
         return try {
-            val u = StalkerLogic.parse(url)?.portal ?: url
+            val u = StalkerLogic.parse(url)?.portal ?: PortalLogic.parse(url)?.base ?: url
             android.net.Uri.parse(u).host ?: "Playlist"
         } catch (e: Exception) { "Playlist" }
     }
@@ -757,6 +757,7 @@ object PlaylistStore {
             return f to Charsets.UTF_8
         }
         StalkerLogic.parse(u)?.let { return downloadStalker(c, u, it) }
+        PortalLogic.parse(u)?.let { return downloadPortal(c, u, it) }
         val acct = XtreamLogic.fromUrl(u) ?: return downloadList(c, u)
         // If get.php has already failed once for this login, use the API right away
         if (useApi(c, u)) return apiOrList(c, u, acct)
@@ -879,6 +880,29 @@ object PlaylistStore {
         // Only after a successful load: which categories are loaded further on opening
         runCatching { stalkerMoreFile(c, u).writeText(StalkerLogic.encodeCats(more)) }
         StalkerMore.reset()
+        return raw to Charsets.UTF_8
+    }
+
+    /** Key-based video portal: build the list via the portal's API (see [PortalApi]). Same cache rules as [downloadStalker]. */
+    private fun downloadPortal(c: Context, u: String, src: PortalLogic.Source): Pair<File, Charset> {
+        val raw = rawFile(c, u)
+        val info = infoFile(c, u)
+        val part = partFile(c, u)
+        val pi = LoadLogic.PartInfo.decode(runCatching { info.readText() }.getOrNull())?.takeIf { it.urlHash == key(u) }
+        if (pi != null && raw.exists() && raw.length() > 0 && System.currentTimeMillis() - raw.lastModified() < RAW_MAX_AGE) return raw to Charsets.UTF_8
+        raw.delete(); part.delete()
+        bytesRead = 0L; totalBytes = -1L; downloadDone = false
+        val counter = CountingOut(FileOutputStream(part)) { bytesRead = it }
+        try {
+            OutputStreamWriter(BufferedOutputStream(counter, 1 shl 16), Charsets.UTF_8).use { w ->
+                PortalApi.write(src, w, { phase = it }, { if (cancelled()) throw CancellationException("abgebrochen") })
+            }
+        } catch (e: Throwable) {
+            part.delete()
+            throw e
+        }
+        info.writeText(LoadLogic.PartInfo(key(u), null, null, "UTF-8").encode())
+        if (!part.renameTo(raw)) throw IOException("Datei konnte nicht umbenannt werden")
         return raw to Charsets.UTF_8
     }
 

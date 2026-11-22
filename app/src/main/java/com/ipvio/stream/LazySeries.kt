@@ -16,7 +16,7 @@ object LazySeries {
     private val done = ConcurrentHashMap<String, Hit>()
     private const val MAX_AGE = 30 * 60_000L
 
-    fun isStub(i: Item): Boolean = XtreamLogic.isLazy(i) || StalkerLogic.isLazy(i)
+    fun isStub(i: Item): Boolean = XtreamLogic.isLazy(i) || StalkerLogic.isLazy(i) || PortalLogic.isLazy(i)
 
     /** The series with its real episodes if already loaded; otherwise the series itself. */
     fun full(i: Item): Item {
@@ -30,16 +30,12 @@ object LazySeries {
     /** Forget everything (new playlist loaded). */
     fun clear() = done.clear()
 
-    /** Load episodes. null = the provider does not respond (network, login). */
-    suspend fun load(ctx: Context, i: Item): Item? {
-        val have = full(i)
-        if (have !== i) return have
-        // Stalker portal: seasons and episodes via the portal's API
-        val sUrls = StalkerLogic.lazyUrls(i)
-        if (sUrls.isNotEmpty()) return withContext(Dispatchers.IO) {
+    /** Episodes of a portal series from its placeholder addresses [urls] (address, label); null = no answer or no episodes. */
+    private suspend fun fromPortal(i: Item, urls: List<Pair<String, String>>, fetch: (String) -> List<Episode>?): Item? =
+        withContext(Dispatchers.IO) {
             var eps: List<Episode>? = null
-            for ((url, label) in sUrls) {
-                val l = StalkerApi.episodeList(url) ?: continue
+            for ((url, label) in urls) {
+                val l = fetch(url) ?: continue
                 eps = if (eps == null) l else MultiLogic.mergeEpisodes(eps, l, label.ifBlank { "2" })
             }
             val e = eps ?: return@withContext null
@@ -48,6 +44,17 @@ object LazySeries {
             done[i.id] = Hit(r, System.currentTimeMillis())
             r
         }
+
+    /** Load episodes. null = the provider does not respond (network, login). */
+    suspend fun load(ctx: Context, i: Item): Item? {
+        val have = full(i)
+        if (have !== i) return have
+        // Stalker portal: seasons and episodes via the portal's API
+        val sUrls = StalkerLogic.lazyUrls(i)
+        if (sUrls.isNotEmpty()) return fromPortal(i, sUrls) { StalkerApi.episodeList(it) }
+        // Key-based video portal (T-036)
+        val pUrls = PortalLogic.lazyUrls(i)
+        if (pUrls.isNotEmpty()) return fromPortal(i, pUrls) { PortalApi.episodeList(it) }
         val urls = XtreamLogic.lazyUrls(i)
         if (urls.isEmpty()) return i
         return withContext(Dispatchers.IO) {
