@@ -1,0 +1,37 @@
+# Fork only: keeps this fork up to date with Emrodev/IPVIO-Stream (main) and carries the portal branch along.
+# Stops with an error (and a mail from GitHub) if a merge conflicts. Not part of the upstream project.
+name: Sync with upstream
+
+on:
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    if: github.repository == 'stanzeman/IPVIO-Stream'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+      - name: Merge upstream main into main and into the portal branch
+        run: |
+          git config user.name "sync-bot"
+          git config user.email "sync-bot@users.noreply.github.com"
+          git remote add upstream https://github.com/Emrodev/IPVIO-Stream.git
+          git fetch upstream main
+          # "[skip ci]" keeps the upstream build and release workflows from running on this fork
+          git merge --no-ff --no-edit -m "Sync with upstream main [skip ci]" upstream/main || { git merge --abort; echo "Conflict on main"; exit 1; }
+          git push origin main
+          BR=feat/T-036-vportal-source
+          if git ls-remote --exit-code --heads origin "$BR" >/dev/null; then
+            git fetch origin "$BR"
+            git checkout -B "$BR" "origin/$BR"
+            git merge --no-ff --no-edit -m "Merge upstream main [skip ci]" upstream/main || { git merge --abort; echo "Conflict on $BR"; exit 1; }
+            git push origin "$BR"
+          fi
