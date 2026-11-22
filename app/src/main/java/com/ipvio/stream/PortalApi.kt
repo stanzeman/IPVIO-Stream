@@ -100,17 +100,18 @@ object PortalApi {
     }
 
     /** Titles of a category: the first [MAX_PAGES] pages, newest first. [ok] false = not even the first page came. */
-    private class Loaded(val rows: List<PortalLogic.Entry>, val ok: Boolean)
+    private class Loaded(val rows: List<PortalLogic.Entry>, val ok: Boolean, val cutOff: Boolean = false)
 
-    private fun loadCategory(src: PortalLogic.Source, c: PortalLogic.Cat, check: () -> Unit): Loaded {
+    private fun loadCategory(src: PortalLogic.Source, c: PortalLogic.Cat, check: () -> Unit, onCount: (Int) -> Unit): Loaded {
         val rows = ArrayList<PortalLogic.Entry>()
         var req: Map<String, Any> = c.request
         var offset = 0
         repeat(MAX_PAGES) {
             check()
-            val o = post(src, req) ?: return Loaded(rows, rows.isNotEmpty())
+            val o = post(src, req) ?: return Loaded(rows, rows.isNotEmpty(), cutOff = rows.isNotEmpty())
             val p = page(o)
             rows.addAll(p.entries)
+            onCount(rows.size)
             val nx = PortalLogic.nextOffset(p.next, offset) ?: return Loaded(rows, true)
             offset = nx
             req = PortalLogic.nextRequest(c.request, nx)
@@ -147,7 +148,12 @@ object PortalApi {
                 wait()
             }
             if (failedInRow >= GIVE_UP_AFTER) continue
-            val l = loadCategory(src, c, check)
+            val l = loadCategory(src, c, check) { cnt -> onPhase("Kategorien werden geladen (${idx + 1}/${cats.size}) – ${n + cnt} Titel …") }
+            if (l.cutOff) {
+                // The portal stopped answering in the middle of a category: say so (the titles loaded so far stay in the list)
+                onPhase("Kategorie unvollständig (${note.ifEmpty { "keine Antwort" }}), geladen: ${l.rows.size} Titel …")
+                Thread.sleep(4000)
+            }
             failedInRow = if (l.ok) 0 else failedInRow + 1
             // Film lookups go newest first (the limit is spent on the titles people look at first)
             val rows = l.rows.map { r ->
