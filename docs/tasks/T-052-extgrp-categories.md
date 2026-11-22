@@ -1,4 +1,4 @@
-# T-037 – Categories from #EXTGRP lines
+# T-052 – Categories from #EXTGRP lines
 
 Status: implemented, not built with Gradle, not device tested.
 
