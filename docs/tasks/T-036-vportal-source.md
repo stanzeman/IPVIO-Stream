@@ -5,6 +5,7 @@
 - Input: the existing playlist address field (no new button, no new UI strings). The stored text is the pasted text, normalized (`PlaylistLogic.normalizeUrl`).
 - Movies: HLS address plus the fragment `#/movie/` so the list parser files them under Movies. A fragment is never sent to the server. `TapLogic.tappable` ignores it, so portal movies get no live-buffer or recording button.
 - Series: placeholder `portal://<sourceId>/series/<fid>.ser` plus "S01E01" in the name; `LazySeries` loads the episodes with `{"cmd":"flick","fid":..}` when the series is opened. One season, numbered in portal order.
+- Films filed as series: the portal lists some films (e.g. in the movies category) as a series with one episode. For categories 1, 3 and 5 the app asks `flick` for every such entry (at most 400 per load) and lists it as a movie when it has exactly one file. Other categories are not checked. Unverified: whether other film categories exist.
 - Loading: the newest 20 pages (600 titles) per category, 150 ms between pages, wait on HTTP 429, cool-down of 30 s after 3 categories in a row without an answer (at most twice). A cancelled load starts again from the beginning (no resume). Whole big categories and portal search are not part of this version.
 - Files: `PortalLogic.kt`, `PortalApi.kt`, `PlaylistLogic.kt`, `PlaylistStore.kt`, `LazySeries.kt`, `TapLogic.kt`, `PortalLogicTest.kt`, `CHANGELOG.md`.
 - New user-visible texts (progress and errors) are German like the existing Stalker ones and have no translation yet.

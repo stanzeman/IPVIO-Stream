@@ -28,6 +28,8 @@ object PortalApi {
     private const val GIVE_UP_AFTER = 3
     private const val MAX_COOLDOWNS = 2
     private const val COOLDOWN_MS = 30_000L
+    /** Looks at "series" entries of film categories (see [PortalLogic.singleAsMovie]); per load at most this many requests. */
+    private const val MAX_FILM_LOOKUPS = 400
 
     /** Last problem in short form (code or kind only, never address or key). */
     @Volatile var note = ""
@@ -134,6 +136,7 @@ object PortalApi {
         val seen = HashSet<Int>()
         var failedInRow = 0
         var cooldowns = 0
+        var lookups = 0
         fun wait() { var w = 0L; while (w < COOLDOWN_MS) { check(); Thread.sleep(1000); w += 1000 } }
         for ((idx, c) in cats.withIndex()) {
             check()
@@ -147,8 +150,14 @@ object PortalApi {
             failedInRow = if (l.ok) 0 else failedInRow + 1
             // The portal sends the newest first; the app reads "new" from the end of the list: write oldest first
             for (i in l.rows.indices.reversed()) {
-                val e = l.rows[i]
+                var e = l.rows[i]
                 if (e.fid <= 0 || !seen.add(e.fid)) continue
+                if (e.type == "multistream" && c.fid in PortalLogic.FILM_CATEGORIES && lookups < MAX_FILM_LOOKUPS) {
+                    check()
+                    lookups++
+                    asMovie(src, e)?.let { e = it }
+                    Thread.sleep(PAGE_PAUSE_MS)
+                }
                 val line = if (e.type == "multistream") PortalLogic.seriesEntry(src, e, c.title) else PortalLogic.movieEntry(e, c.title)
                 if (line != null) { out.write(line); out.write("\n"); n++ }
             }
@@ -160,6 +169,15 @@ object PortalApi {
             throw PlaylistError("Das Portal hat keine Titel geliefert$why. Adresse und Key prüfen.")
         }
         return n
+    }
+
+    /** A "series" entry of a film category that has only one file becomes a movie; null = stays a series (or no answer). */
+    private fun asMovie(src: PortalLogic.Source, e: PortalLogic.Entry): PortalLogic.Entry? {
+        val o = post(src, mapOf("cmd" to "flick", "fid" to e.fid)) ?: return null
+        val a = o.optJSONArray("items") ?: return null
+        val items = ArrayList<PortalLogic.Entry>()
+        for (i in 0 until a.length()) a.optJSONObject(i)?.let { items.add(entry(it)) }
+        return PortalLogic.singleAsMovie(e, items)
     }
 
     private fun sourceOf(id: Int): PortalLogic.Source? =

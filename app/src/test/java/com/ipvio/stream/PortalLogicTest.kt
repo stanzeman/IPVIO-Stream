@@ -160,4 +160,33 @@ class PortalLogicTest {
         assertFalse(TapLogic.tappable(PortalLogic.movieUrl("http://c.example.test/vod/k/0/master.m3u8")))
         assertTrue(TapLogic.tappable("http://c.example.test/live/1.ts"))
     }
+    @Test fun aSeriesEntryWithOneFileIsAFilm() {
+        val e = PortalLogic.Entry("multistream", "Film", "http://p.example.test/i.jpg", 9, "", 2007, "text")
+        val one = listOf(entry("stream", "Series 1", 90, "http://c.example.test/0/master.m3u8"))
+        val m = PortalLogic.singleAsMovie(e, one)!!
+        assertEquals("stream", m.type)
+        assertEquals("Film", m.title)
+        assertEquals(9, m.fid)
+        assertEquals(2007, m.year)
+        assertEquals("http://c.example.test/0/master.m3u8", m.url)
+        // and it is filed as a movie afterwards
+        assertTrue(PortalLogic.movieEntry(m, "Movies")!!.lines()[1].contains("/movie/"))
+    }
+
+    @Test fun realSeriesStaySeries() {
+        val e = PortalLogic.Entry("multistream", "Show", "", 9, "", 2000)
+        val two = listOf(entry("stream", "S1", 1, "http://c.example.test/0/m.m3u8"), entry("stream", "S2", 2, "http://c.example.test/1/m.m3u8"))
+        assertNull(PortalLogic.singleAsMovie(e, two))
+        assertNull(PortalLogic.singleAsMovie(e, emptyList()))
+        assertNull(PortalLogic.singleAsMovie(e, listOf(entry("stream", "S1", 1, ""))))
+        assertNull(PortalLogic.singleAsMovie(e, listOf(entry("multistream", "Part", 3))))
+        // a plain movie is not touched
+        assertNull(PortalLogic.singleAsMovie(PortalLogic.Entry("stream", "M", "", 1, "http://c.example.test/a.m3u8", 0), two))
+    }
+
+    @Test fun onlyFilmCategoriesAreChecked() {
+        assertTrue(1 in PortalLogic.FILM_CATEGORIES)
+        assertFalse(2 in PortalLogic.FILM_CATEGORIES)
+        assertFalse(11 in PortalLogic.FILM_CATEGORIES)
+    }
 }

@@ -99,6 +99,23 @@ object PortalLogic {
         return sb.append(',').append(n).append(" S01E01").append('\n').append(seriesUrl(src.id, e.fid)).toString()
     }
 
+    /**
+     * Categories whose "series" entries are often single films: the portal lists a film with one file as a series with
+     * one episode (e.g. a film in the movies category opened as "1 season, 1 episode"). Ids: 1 = movies, 3 = cartoons, 5 = 3D.
+     */
+    val FILM_CATEGORIES = setOf(1, 3, 5)
+
+    /**
+     * A "series" entry that has exactly one playable file is a film: returns it as a movie entry with that file's address.
+     * null = it is a real series (several files, none, or the answer lists further series).
+     */
+    fun singleAsMovie(e: Entry, items: List<Entry>): Entry? {
+        if (e.type != "multistream" || items.any { it.type == "multistream" }) return null
+        val files = items.filter { it.type == "stream" && isHttp(it.url) && it.url.none { c -> c.isWhitespace() } }
+        if (files.size != 1) return null
+        return Entry("stream", e.title, e.img, e.fid, files[0].url.substringBefore('#'), e.year, e.description)
+    }
+
     // ------------------------------------------------------------------ Series placeholder
 
     fun seriesUrl(sourceId: Int, fid: Int): String = "portal://$sourceId/series/$fid.ser"
