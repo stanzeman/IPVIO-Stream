@@ -282,6 +282,8 @@ object PlaylistStore {
     private const val UA = "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
     /** A fully downloaded but not yet parsed list is reused for this long. */
     private const val RAW_MAX_AGE = 12 * 3_600_000L
+    /** Raise when the list a portal produces changes (T-036): a stored portal list of an older format is then not reused. */
+    private const val PORTAL_FORMAT = 2
     /** Free space that should remain at least after the download. */
     private const val SPACE_RESERVE = 64L * 1024 * 1024
 
@@ -888,7 +890,7 @@ object PlaylistStore {
         val raw = rawFile(c, u)
         val info = infoFile(c, u)
         val part = partFile(c, u)
-        val pi = LoadLogic.PartInfo.decode(runCatching { info.readText() }.getOrNull())?.takeIf { it.urlHash == key(u) }
+        val pi = LoadLogic.PartInfo.decode(runCatching { info.readText() }.getOrNull())?.takeIf { it.urlHash == key(u) + PORTAL_FORMAT }
         if (pi != null && raw.exists() && raw.length() > 0 && System.currentTimeMillis() - raw.lastModified() < RAW_MAX_AGE) return raw to Charsets.UTF_8
         raw.delete(); part.delete()
         bytesRead = 0L; totalBytes = -1L; downloadDone = false
@@ -901,7 +903,7 @@ object PlaylistStore {
             part.delete()
             throw e
         }
-        info.writeText(LoadLogic.PartInfo(key(u), null, null, "UTF-8").encode())
+        info.writeText(LoadLogic.PartInfo(key(u) + PORTAL_FORMAT, null, null, "UTF-8").encode())
         if (!part.renameTo(raw)) throw IOException("Datei konnte nicht umbenannt werden")
         return raw to Charsets.UTF_8
     }

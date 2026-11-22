@@ -148,16 +148,20 @@ object PortalApi {
             if (failedInRow >= GIVE_UP_AFTER) continue
             val l = loadCategory(src, c, check)
             failedInRow = if (l.ok) 0 else failedInRow + 1
-            // The portal sends the newest first; the app reads "new" from the end of the list: write oldest first
-            for (i in l.rows.indices.reversed()) {
-                var e = l.rows[i]
-                if (e.fid <= 0 || !seen.add(e.fid)) continue
-                if (e.type == "multistream" && c.fid in PortalLogic.FILM_CATEGORIES && lookups < MAX_FILM_LOOKUPS) {
+            // Film lookups go newest first (the limit is spent on the titles people look at first)
+            val rows = l.rows.map { r ->
+                if (r.type == "multistream" && r.fid > 0 && c.fid in PortalLogic.FILM_CATEGORIES && lookups < MAX_FILM_LOOKUPS && r.fid !in seen) {
                     check()
                     lookups++
-                    asMovie(src, e)?.let { e = it }
+                    val m = asMovie(src, r)
                     Thread.sleep(PAGE_PAUSE_MS)
-                }
+                    m ?: r
+                } else r
+            }
+            // The portal sends the newest first; the app reads "new" from the end of the list: write oldest first
+            for (i in rows.indices.reversed()) {
+                val e = rows[i]
+                if (e.fid <= 0 || !seen.add(e.fid)) continue
                 val line = if (e.type == "multistream") PortalLogic.seriesEntry(src, e, c.title) else PortalLogic.movieEntry(e, c.title)
                 if (line != null) { out.write(line); out.write("\n"); n++ }
             }
