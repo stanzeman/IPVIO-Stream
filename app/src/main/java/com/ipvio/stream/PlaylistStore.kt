@@ -283,7 +283,7 @@ object PlaylistStore {
     /** A fully downloaded but not yet parsed list is reused for this long. */
     private const val RAW_MAX_AGE = 12 * 3_600_000L
     /** Raise when the list a portal produces changes (T-036): a stored portal list of an older format is then not reused. */
-    private const val PORTAL_FORMAT = 2
+    private const val PORTAL_FORMAT = 3
     /** Free space that should remain at least after the download. */
     private const val SPACE_RESERVE = 64L * 1024 * 1024
 

@@ -14,22 +14,22 @@ import java.util.concurrent.TimeUnit
  * text; [note] holds only a short reason such as "HTTP 429".
  *
  * Loading is gentle on the portal: a pause between pages, a wait on "429 Too Many Requests", a cool-down after several
- * categories in a row without an answer. Only the newest [MAX_PAGES] pages (30 titles each) of every category are
- * loaded: big categories have thousands of titles (see the task file for the numbers).
+ * categories in a row without an answer. Whole categories are loaded ([MAX_PAGES] pages of 30 titles as a safety limit;
+ * the biggest category seen has 13,148 titles, i.e. about 440 requests). The loaded list is kept for 12 hours.
  */
 object PortalApi {
     private val client: OkHttpClient = Net.base.newBuilder().connectTimeout(15, TimeUnit.SECONDS).readTimeout(60, TimeUnit.SECONDS).build()
     private val JSON = "application/json; charset=UTF-8".toMediaType()
 
-    /** Pages (30 titles each) loaded per category when the playlist is built. */
-    private const val MAX_PAGES = 20
+    /** Pages (30 titles each) loaded per category when the playlist is built: 700 pages = 21,000 titles, more than any category seen. */
+    private const val MAX_PAGES = 700
     /** Pause between two pages so the portal does not block. */
     private const val PAGE_PAUSE_MS = 150L
     private const val GIVE_UP_AFTER = 3
     private const val MAX_COOLDOWNS = 2
     private const val COOLDOWN_MS = 30_000L
     /** Looks at "series" entries of film categories (see [PortalLogic.singleAsMovie]); per load at most this many requests. */
-    private const val MAX_FILM_LOOKUPS = 400
+    private const val MAX_FILM_LOOKUPS = 1500
 
     /** Last problem in short form (code or kind only, never address or key). */
     @Volatile var note = ""
