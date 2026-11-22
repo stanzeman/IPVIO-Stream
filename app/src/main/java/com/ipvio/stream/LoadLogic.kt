@@ -208,6 +208,20 @@ object LoadLogic {
         return if (end < 0) null else line.substring(from, end)
     }
 
+    /**
+     * Category from a separate "#EXTGRP:name" line (VLC style; some providers write only this and no group-title);
+     * null = not such a line or an empty name.
+     */
+    fun extGroup(line: String): String? {
+        val l = line.trim()
+        if (!l.startsWith("#EXTGRP:", ignoreCase = true)) return null
+        return l.substring(8).trim().ifEmpty { null }
+    }
+
+    /** Category of an entry: group-title first, then #EXTGRP, else "Sonstige". */
+    fun pickGroup(groupTitle: String?, extGrp: String?): String =
+        groupTitle?.ifBlank { null } ?: extGrp ?: "Sonstige"
+
     /** Category names compared without case and surrounding spaces (the API path writes " as '). */
     fun normGroup(name: String): String = name.replace('"', '\'').trim().lowercase()
 
