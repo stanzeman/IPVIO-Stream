@@ -7,7 +7,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Key-based video portal (T-036): input text, categories, paging, list entries, series placeholder, episodes. Synthetic data only. */
+/** Key-based video portal (T-051): input text, categories, paging, list entries, series placeholder, episodes. Synthetic data only. */
 class PortalLogicTest {
     private val key = "aaaabbbbccccdddd-0123456789abcde"
     private val base = "http://portal.example.test/api/v1/"

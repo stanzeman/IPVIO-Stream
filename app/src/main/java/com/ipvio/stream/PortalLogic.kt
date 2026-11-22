@@ -1,7 +1,7 @@
 package com.ipvio.stream
 
 /**
- * Key-based video portals ("vportal", T-036). Without Android, testable.
+ * Key-based video portals ("vportal", T-051). Without Android, testable.
  *
  * The user enters (or pastes into the playlist address field) one text of the form
  * `portal::[key:<KEY>]http://<host>/api/v1/`. There is no MAC address and no user name: every request is a JSON POST to
