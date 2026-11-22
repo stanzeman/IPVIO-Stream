@@ -137,6 +137,7 @@ object PortalApi {
         var failedInRow = 0
         var cooldowns = 0
         var lookups = 0
+        val seriesTitle = cats.firstOrNull { it.fid == PortalLogic.SERIES_CATEGORY }?.title
         fun wait() { var w = 0L; while (w < COOLDOWN_MS) { check(); Thread.sleep(1000); w += 1000 } }
         for ((idx, c) in cats.withIndex()) {
             check()
@@ -162,7 +163,8 @@ object PortalApi {
             for (i in rows.indices.reversed()) {
                 val e = rows[i]
                 if (e.fid <= 0 || !seen.add(e.fid)) continue
-                val line = if (e.type == "multistream") PortalLogic.seriesEntry(src, e, c.title) else PortalLogic.movieEntry(e, c.title)
+                val group = PortalLogic.groupFor(e, c, seriesTitle)
+                val line = if (e.type == "multistream") PortalLogic.seriesEntry(src, e, group) else PortalLogic.movieEntry(e, group)
                 if (line != null) { out.write(line); out.write("\n"); n++ }
             }
             onPhase("Kategorien werden geladen (${idx + 1}/${cats.size}) …")

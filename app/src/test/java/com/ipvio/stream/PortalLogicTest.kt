@@ -189,4 +189,16 @@ class PortalLogicTest {
         assertFalse(2 in PortalLogic.FILM_CATEGORIES)
         assertFalse(11 in PortalLogic.FILM_CATEGORIES)
     }
+
+    @Test fun aSeriesInAFilmCategoryGoesToTheSeriesGroup() {
+        val films = PortalLogic.cat("movies", mapOf("cmd" to "flicks", "fid" to 1))!!
+        val tv = PortalLogic.cat("shows", mapOf("cmd" to "flicks", "fid" to 2))!!
+        val series = entry("multistream", "Show", 5)
+        val film = entry("stream", "Film", 6, "http://c.example.test/a.m3u8")
+        assertEquals("shows", PortalLogic.groupFor(series, films, "shows"))
+        assertEquals("movies", PortalLogic.groupFor(film, films, "shows"))
+        assertEquals("shows", PortalLogic.groupFor(series, tv, "shows"))
+        assertEquals("movies", PortalLogic.groupFor(series, films, null))
+        assertEquals("movies", PortalLogic.groupFor(series, films, " "))
+    }
 }

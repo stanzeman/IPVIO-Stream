@@ -105,6 +105,16 @@ object PortalLogic {
      */
     val FILM_CATEGORIES = setOf(1, 3, 5)
 
+    /** Category id of the series (its title is the group for real series found in a film category). */
+    const val SERIES_CATEGORY = 2
+
+    /**
+     * Group of an entry: a series that the portal lists in a film category (a film category has no series group of its
+     * own) goes to the series category's group, so it is found next to the other series. [seriesTitle] null = unknown.
+     */
+    fun groupFor(e: Entry, cat: Cat, seriesTitle: String?): String =
+        if (e.type == "multistream" && cat.fid in FILM_CATEGORIES && !seriesTitle.isNullOrBlank()) seriesTitle else cat.title
+
     /**
      * A "series" entry that has exactly one playable file is a film: returns it as a movie entry with that file's address.
      * null = it is a real series (several files, none, or the answer lists further series).
