@@ -9,7 +9,7 @@ import java.io.Writer
 import java.util.concurrent.TimeUnit
 
 /**
- * Connection to a key-based video portal (see [PortalLogic], T-036): categories, movies and series as a list, episodes
+ * Connection to a key-based video portal (see [PortalLogic], T-051): categories, movies and series as a list, episodes
  * when a series is opened. Every request is a JSON POST with the key. The key is never written to a log or an error
  * text; [note] holds only a short reason such as "HTTP 429".
  *

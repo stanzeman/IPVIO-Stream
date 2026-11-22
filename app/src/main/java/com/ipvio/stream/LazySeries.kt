@@ -52,7 +52,7 @@ object LazySeries {
         // Stalker portal: seasons and episodes via the portal's API
         val sUrls = StalkerLogic.lazyUrls(i)
         if (sUrls.isNotEmpty()) return fromPortal(i, sUrls) { StalkerApi.episodeList(it) }
-        // Key-based video portal (T-036)
+        // Key-based video portal (T-051)
         val pUrls = PortalLogic.lazyUrls(i)
         if (pUrls.isNotEmpty()) return fromPortal(i, pUrls) { PortalApi.episodeList(it) }
         val urls = XtreamLogic.lazyUrls(i)
