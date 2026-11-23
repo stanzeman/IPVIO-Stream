@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -52,12 +53,14 @@ internal fun PlaylistEditDialog(ctx: Context, index: Int, scope: CoroutineScope,
 
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(
-            Modifier.width(760.dp).clip(RoundedCornerShape(DS.RadiusL)).background(Tok.GlassStrong).padding(24.dp),
+            // The whole window fits the screen; only the middle part scrolls, so "Apply" and "Cancel" stay visible (T-058)
+            Modifier.width(760.dp).heightIn(max = (LocalConfiguration.current.screenHeightDp - 32).coerceAtLeast(320).dp)
+                .clip(RoundedCornerShape(DS.RadiusL)).background(Tok.GlassStrong).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(Lang.tr("Playlist bearbeiten"), color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
             Text(PlaylistStore.hostOf(url), color = Muted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Field(name, { name = it }, "Name der Playlist")
                 SelectRow("Inhalt der Playlist", PlaylistMode.labels[mode], PlaylistMode.labels, mode, active = mode != PlaylistMode.ALL) { mode = it }
                 // Fork (T-058): "shown additionally" can be switched on again (upstream allows only switching off since 1.4.2)

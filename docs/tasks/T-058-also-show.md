@@ -7,6 +7,7 @@ The fork owner uses a live TV M3U as main list and a video portal for movies and
 
 ## Change
 - `PlaylistEditDialog.kt`: the row "Zusätzlich angezeigt" is shown for every list that is not the main list (before: only when it was already shown, to switch it off). "Apply" stores on and off (`PlaylistStore.setShown(ctx, index, shown)`), then `applyMulti` loads the extra list as before.
+- `PlaylistEditDialog.kt`: the window is limited to the screen height and only its middle part scrolls (`weight(1f, fill = false)` instead of a fixed 420 dp). With the extra row the window was taller than a 1080p TV screen (about 540 dp) and the buttons "Apply"/"Cancel" were cut off (reported on the Fire TV, 23 Nov 2026).
 - Merging, source filter and Live TV source switch are unchanged upstream code (`MultiLogic`, `PlaylistStore.applyMulti`).
 
 ## Risks
