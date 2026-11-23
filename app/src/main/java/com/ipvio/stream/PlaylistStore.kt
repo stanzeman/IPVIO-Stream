@@ -285,7 +285,7 @@ object PlaylistStore {
     /** A fully downloaded but not yet parsed list is reused for this long. */
     private const val RAW_MAX_AGE = 12 * 3_600_000L
     /** Raise when the list a portal produces changes (T-051): a stored portal list of an older format is then not reused. */
-    private const val PORTAL_FORMAT = 3
+    private const val PORTAL_FORMAT = PortalLogic.LIST_FORMAT
     /** Free space that should remain at least after the download. */
     private const val SPACE_RESERVE = 64L * 1024 * 1024
 
@@ -939,10 +939,19 @@ object PlaylistStore {
         if (pi != null && raw.exists() && raw.length() > 0 && System.currentTimeMillis() - raw.lastModified() < RAW_MAX_AGE) return raw to Charsets.UTF_8
         raw.delete(); part.delete()
         bytesRead = 0L; totalBytes = -1L; downloadDone = false
-        val counter = CountingOut(FileOutputStream(part)) { bytesRead = it }
-        try {
+        // T-054: with a stored list of the current format (and the last full load younger than 30 days) only new titles are loaded
+        val old = oldPortalList(c, u)
+        fun run(o: PortalApi.Old?) {
+            val counter = CountingOut(FileOutputStream(part)) { bytesRead = it }
             OutputStreamWriter(BufferedOutputStream(counter, 1 shl 16), Charsets.UTF_8).use { w ->
-                PortalApi.write(src, w, { phase = it }, { if (cancelled()) throw CancellationException("abgebrochen") })
+                PortalApi.write(src, w, { phase = it }, { if (cancelled()) throw CancellationException("abgebrochen") }, o)
+            }
+        }
+        try {
+            try { run(old) } catch (e: PortalApi.StaleList) {
+                PlaylistDiag.log("portal", "movie host changed, full load")
+                part.delete()
+                run(null)
             }
         } catch (e: Throwable) {
             part.delete()
@@ -951,6 +960,35 @@ object PlaylistStore {
         info.writeText(LoadLogic.PartInfo(key(u) + PORTAL_FORMAT, null, null, "UTF-8").encode())
         if (!part.renameTo(raw)) throw IOException("Datei konnte nicht umbenannt werden")
         return raw to Charsets.UTF_8
+    }
+
+    /**
+     * The stored copy of a portal list for an update (T-054), or null = load everything: no copy, an older format,
+     * no title ids, or the last full load is 30 days old. The copy is read twice (ids now, entries while writing),
+     * so it is never held in memory as a whole.
+     */
+    private fun oldPortalList(c: Context, u: String): PortalApi.Old? {
+        val gz = gzFile(c, u)
+        if (!gz.exists() || gz.length() == 0L) return null
+        val known = HashSet<Int>()
+        var head: PortalLogic.Head? = null
+        val ok = runCatching {
+            GZIPInputStream(FileInputStream(gz)).bufferedReader(Charsets.UTF_8).useLines { lines ->
+                for (l in lines) {
+                    if (l.startsWith("#EXTINF")) PortalLogic.fidOf(l)?.let { known.add(it) }
+                    else if (head == null) head = PortalLogic.parseHead(l)
+                }
+            }
+        }.isSuccess
+        val h = head
+        if (!ok || h == null || known.isEmpty() || PortalLogic.needsFull(h.fullAt, System.currentTimeMillis())) return null
+        return PortalApi.Old(known, h.fullAt, h.vodHost) { w ->
+            var n = 0
+            GZIPInputStream(FileInputStream(gz)).bufferedReader(Charsets.UTF_8).useLines { lines ->
+                for (l in lines) if (PortalLogic.keepLine(l)) { w.write(l); w.write("\n"); if (l.startsWith("#EXTINF")) n++ }
+            }
+            n
+        }
     }
 
     private fun downloadList(c: Context, u: String): Pair<File, Charset> {

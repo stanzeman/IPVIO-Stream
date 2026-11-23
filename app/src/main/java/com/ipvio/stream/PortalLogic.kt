@@ -84,6 +84,7 @@ object PortalLogic {
         var n = name(e.title).ifEmpty { return null }
         if (e.year in 1850..2100 && !n.contains("(${e.year})")) n = "$n (${e.year})"
         val sb = StringBuilder("#EXTINF:-1")
+        if (e.fid > 0) sb.append(" portal-fid=\"").append(e.fid).append('"')
         e.img.trim().takeIf { isHttp(it) }?.let { sb.append(" tvg-logo=\"").append(attr(it)).append('"') }
         sb.append(" group-title=\"").append(attr(group).ifEmpty { "Filme" }).append('"')
         return sb.append(',').append(n).append('\n').append(movieUrl(e.url)).toString()
@@ -93,7 +94,7 @@ object PortalLogic {
     fun seriesEntry(src: Source, e: Entry, group: String): String? {
         if (e.type != "multistream" || e.fid <= 0) return null
         val n = name(e.title).ifEmpty { return null }
-        val sb = StringBuilder("#EXTINF:-1")
+        val sb = StringBuilder("#EXTINF:-1").append(" portal-fid=\"").append(e.fid).append('"')
         e.img.trim().takeIf { isHttp(it) }?.let { sb.append(" tvg-logo=\"").append(attr(it)).append('"') }
         sb.append(" group-title=\"").append(attr(group).ifEmpty { "Serien" }).append('"')
         return sb.append(',').append(n).append(" S01E01").append('\n').append(seriesUrl(src.id, e.fid)).toString()
@@ -124,6 +125,97 @@ object PortalLogic {
         val files = items.filter { it.type == "stream" && isHttp(it.url) && it.url.none { c -> c.isWhitespace() } }
         if (files.size != 1) return null
         return Entry("stream", e.title, e.img, e.fid, files[0].url.substringBefore('#'), e.year, e.description)
+    }
+
+    // ------------------------------------------------------------------ Update with new titles only (T-054)
+
+    /**
+     * Format of the stored list. Format 4: every entry carries `portal-fid="…"` (the portal's title id; the list parser
+     * ignores unknown attributes) and the list ends with a line [HEAD] that names the time of the last full load and
+     * the host of the movie addresses. Lists without it are loaded in full once.
+     */
+    const val LIST_FORMAT = 4
+    private const val HEAD = "#PORTAL-LIST:"
+
+    /** A full load is done at the latest after this time, so titles the portal removed leave the list. */
+    const val FULL_EVERY_MS = 30L * 24 * 3_600_000L
+
+    /** Last line of a stored list: time of the last full load and host of the movie addresses (may be empty). */
+    fun head(fullAt: Long, vodHost: String?): String = "$HEAD$LIST_FORMAT full=$fullAt vod=${vodHost.orEmpty()}"
+
+    /** What a head line says; null = not a head line of the current format. */
+    class Head(val fullAt: Long, val vodHost: String?)
+
+    fun parseHead(line: String): Head? {
+        if (!line.startsWith(HEAD)) return null
+        val parts = line.removePrefix(HEAD).trim().split(' ')
+        if (parts.firstOrNull() != LIST_FORMAT.toString()) return null
+        val full = parts.firstOrNull { it.startsWith("full=") }?.removePrefix("full=")?.toLongOrNull() ?: return null
+        val vod = parts.firstOrNull { it.startsWith("vod=") }?.removePrefix("vod=")?.takeIf { it.isNotEmpty() }
+        return Head(full, vod)
+    }
+
+    private val FID = Regex(""" portal-fid="(\d+)"""")
+
+    /** Title id of a stored entry line ("#EXTINF…"); null = none. */
+    fun fidOf(extinf: String): Int? = FID.find(extinf)?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it > 0 }
+
+    /** Lines of a stored list that are copied into the updated one (everything but the list start and the head line). */
+    fun keepLine(line: String): Boolean = line.isNotBlank() && !line.startsWith("#EXTM3U") && !line.startsWith(HEAD)
+
+    /** true = load everything again: no usable stored list, or the last full load is [FULL_EVERY_MS] old (or in the future). */
+    fun needsFull(fullAt: Long?, now: Long): Boolean = fullAt == null || (now - fullAt) !in 0 until FULL_EVERY_MS
+
+    /**
+     * Stop rule of an update: the portal lists the newest titles first, so a page whose titles are all known means the
+     * rest of the category is known too. An empty page does not count as known.
+     */
+    fun pageKnown(entries: List<Entry>, known: Set<Int>): Boolean =
+        entries.isNotEmpty() && entries.all { it.fid <= 0 || it.fid in known }
+
+    /** Host of a movie address ("http://host/vod/…" → "host"); null = no web address. */
+    fun hostOf(url: String): String? {
+        if (!isHttp(url)) return null
+        return url.substringAfter("://").substringBefore('/').substringBefore('?').lowercase().ifEmpty { null }
+    }
+
+    /**
+     * true = the stored movie host [stored] no longer appears among the movie hosts of a page ([seen]); then the stored
+     * addresses may be dead and everything is loaded again. Unknown host or a page without movies: false.
+     */
+    fun hostGone(stored: String?, seen: Set<String>): Boolean = stored != null && seen.isNotEmpty() && stored !in seen
+
+    // ------------------------------------------------------------------ Search on the portal (T-057)
+
+    /** Shortest query sent to the portal (shorter ones would list half the catalogue). */
+    const val SEARCH_MIN = 2
+
+    /** Query as sent to the portal: trimmed, inner spaces collapsed, at most 60 characters; null = too short. */
+    fun searchQuery(q: String): String? = q.trim().split(Regex("\\s+")).joinToString(" ").take(60).takeIf { it.length >= SEARCH_MIN }
+
+    /**
+     * A search hit of the portal as a title of the app: a movie with its stream address (plus [MOVIE_MARK]) or a series
+     * with the placeholder of [seriesUrl] (episodes come when it is opened). [group] = row label. null = unusable hit.
+     */
+    fun searchItem(src: Source, e: Entry, group: String): Item? {
+        val t = name(e.title).ifEmpty { return null }
+        val year = e.year.takeIf { it in 1850..2100 }
+        val logo = e.img.trim().takeIf { isHttp(it) }
+        return when {
+            e.type == "stream" && isHttp(e.url) && e.url.none { it.isWhitespace() } ->
+                Item("portal:m:${src.id}:${e.fid}", Kind.MOVIE, t, year, movieUrl(e.url), logo, group)
+            e.type == "multistream" && e.fid > 0 -> {
+                val u = seriesUrl(src.id, e.fid)
+                Item("portal:s:${src.id}:${e.fid}", Kind.SERIES, t, year, u, logo, group, listOf(Episode(1, 1, EpTitles.of(1), u)))
+            }
+            else -> null
+        }
+    }
+
+    /** Hits not yet in the local list ([have] = addresses of titles already there), at most [max]. */
+    fun newHits(hits: List<Item>, have: Set<String>, max: Int = 60): List<Item> {
+        val seen = HashSet<String>()
+        return hits.filter { it.url !in have && seen.add(it.url) }.take(max)
     }
 
     // ------------------------------------------------------------------ Series placeholder

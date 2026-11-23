@@ -146,6 +146,17 @@ fun SearchScreen(
         }
     }
     val searching = q.length >= 2 && found.first != q
+    // T-057: a video portal also searches on its server; hits not in the local list get their own row
+    val hasPortal = remember(PlaylistStore.lists) { PlaylistStore.lists.any { PortalLogic.isSource(it.url) } }
+    val have = remember(all, hasPortal) {
+        if (!hasPortal) emptySet() else HashSet<String>(all.size * 2).also { h -> all.forEach { i -> h.add(i.url); i.episodes.firstOrNull()?.let { h.add(it.url) } } }
+    }
+    val portalHits by produceState(emptyList<Item>(), q, hasPortal) {
+        value = emptyList()
+        if (!hasPortal || PortalLogic.searchQuery(q) == null) return@produceState
+        delay(450)
+        value = withContext(Dispatchers.IO) { runCatching { PortalApi.searchItems(q, have) }.getOrDefault(emptyList()) }
+    }
     val (rm0, rs0, rl0) = if (q.length < 2 || searching) none else found.second
     val fl = SearchState.filter
     // Word suggestions for the word being typed
@@ -157,7 +168,8 @@ fun SearchScreen(
     // The same movie in several versions only once (the source is chosen on the detail page)
     val rmAll: List<Item> = rm0   // already one per movie (see the search above)
     val rm = if (fl == 0 || fl == 1) rmAll else emptyList()
-    val firstKey = when { rm.isNotEmpty() -> "rm"; rs.isNotEmpty() -> "rs"; rl.isNotEmpty() -> "rl"; else -> "" }
+    val rp = portalHits.filter { (fl == 0) || (fl == 1 && it.kind == Kind.MOVIE) || (fl == 2 && it.kind == Kind.SERIES) }
+    val firstKey = when { rm.isNotEmpty() -> "rm"; rs.isNotEmpty() -> "rs"; rl.isNotEmpty() -> "rl"; rp.isNotEmpty() -> "rp"; else -> "" }
     // Back: from a hit (or any other element) first to the input (field or app keyboard); from the input to the sidebar
     BackHandler(enabled = !inSidebar) {
         // requestFocus returns false (no exception) when the target is not on screen: then go on to the sidebar instead of doing nothing
@@ -295,7 +307,7 @@ fun SearchScreen(
                     val openS: (Item) -> Unit = { i -> AppSettings.addSearch(ctx, q); onOpen(i) }
                     if (searching) item {
                         Text("Suche …", color = Muted, fontSize = 16.sp, modifier = Modifier.padding(horizontal = DS.PageX, vertical = 16.dp))
-                    } else if (rm.isEmpty() && rs.isEmpty() && rl.isEmpty()) item {
+                    } else if (rm.isEmpty() && rs.isEmpty() && rl.isEmpty() && rp.isEmpty()) item {
                         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                             EmptyState(AIcon.Info, "Keine Treffer", "Prüfe die Schreibweise oder suche nach einem Teil des Titels. Kleine Tippfehler findet die Suche trotzdem.")
                         }
@@ -313,6 +325,11 @@ fun SearchScreen(
                     if (rl.isNotEmpty()) item(key = "rl") {
                         SearchRow("Live TV", rl, cardW, openS, if (firstKey == "rl") firstRes else null) {
                             AppSettings.addSearch(ctx, q); onBrowse(BrowseReq("Suche „$q“ · Live TV", rl, S_SORT_AZ))
+                        }
+                    }
+                    if (rp.isNotEmpty()) item(key = "rp") {
+                        SearchRow("Im Portal gefunden", rp, cardW, openS, if (firstKey == "rp") firstRes else null) {
+                            AppSettings.addSearch(ctx, q); onBrowse(BrowseReq("Suche „$q“ · Portal", rp, S_SORT_AZ))
                         }
                     }
                 }
