@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Settings > Language & region: new "Language of title information". Descriptions, titles, cast, episode names and trailers from TMDB can come in another language than the menus, for example Russian (also Ukrainian; all app languages). Titles loaded before are fetched again in the new language when opened. Age ratings stay with the country of the app language. Not device tested yet
 - Docs: README gets an install troubleshooting pointer, a "Privacy and security" section (API keys, backup servers, phone remote over plain HTTP, VPN without kill switch, own DNS), a "Known limitations" section and a link to the test documentation. No app change
 
 ## 1.4.8 (versionCode 14)
