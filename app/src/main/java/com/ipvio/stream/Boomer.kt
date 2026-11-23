@@ -215,7 +215,7 @@ private fun buildRows(
                 // Quality duplicates (HD/FHD/SD of the same channel) are merged unless the user picked tiles by hand
                 val ch0 = BoomerLogic.tiles(d.live, favs, hist, custom)
                 val ch = if (custom.isEmpty() && General.bundleLive) LiveBundleLogic.bundle(ch0).list else ch0
-                if (ch.isNotEmpty()) out.add(BRow("ch", label, ch.map { c -> BTile("c" + c.id, c.title, c.logo) { onPlay(c, ch) } }))
+                if (ch.isNotEmpty()) out.add(BRow("ch", label, ch.map { c -> BTile("c" + c.id, c.title, Xmltv.logo(c)) { onPlay(c, ch) } }))
             }
             "resume" -> {
                 val r = entries.mapNotNull { e -> d.byId[e.itemId]?.takeIf { it.kind != Kind.LIVE }?.let { e to it } }.distinctBy { it.second.id }.take(20)

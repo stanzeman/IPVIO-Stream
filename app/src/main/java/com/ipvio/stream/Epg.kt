@@ -18,6 +18,9 @@ import okhttp3.Request
 import org.json.JSONObject
 import org.xmlpull.v1.XmlPullParser
 import java.io.BufferedInputStream
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
 import java.io.InputStream
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -85,13 +88,29 @@ object Xmltv {
     fun forChannel(id: String?): List<EpgEntry> = if (id == null) emptyList() else progs[id.lowercase()] ?: emptyList()
     fun forItem(item: Item): List<EpgEntry> = forChannel(idFor(item))
 
+    /** Channel icons from the guide (lower-case guide id to address), for channels whose playlist has no logo (T-055). */
+    private val icons = ConcurrentHashMap<String, String>()
+
+    /** Icons of channels found by name whose guide channel has no shows (channel title to icon address). */
+    private val iconByTitle = ConcurrentHashMap<String, String>()
+
+    /** Changes when new icons arrive, so channel lists already on screen draw them (read in [logo]). */
+    private var iconRev by mutableStateOf(0)
+
+    /** Logo of a channel: the playlist's own, otherwise the icon of its guide channel (null = none). */
+    fun logo(item: Item): String? {
+        item.logo?.let { return it }
+        if (item.kind != Kind.LIVE || iconRev < 0) return null
+        return idFor(item)?.let { icons[it.lowercase()] } ?: iconByTitle[item.title]
+    }
+
     /**
      * Loads the XMLTV program for the visible channels (hidden languages do not even arrive).
      * Only what is needed is stored: window −1 h to +36 h, at most 80 shows per channel, description shortened,
      * equal titles only once. If memory gets tight, parsing stops and keeps what has been read so far.
      */
     /** [delayMs]: at app start the guide waits a little so the home screen and the playlist get the CPU first. */
-    fun start(c: Context, urls: List<String>, items: List<Item>, delayMs: Long = 0L) {
+    fun start(c: Context, urls: List<String>, items: List<Item>, delayMs: Long = 0L, force: Boolean = false) {
         val all = (urls + listOf(customUrl(c))).filter { it.startsWith("http") }.distinct()
         if (all.isEmpty()) { status = "Keine EPG-Adresse gefunden"; return }
         val live = items.filter { it.kind == Kind.LIVE }
@@ -99,6 +118,7 @@ object Xmltv {
         // Channels without a "tvg-id" are looked up by name in the guide (T-053)
         val nameKeys = live.filter { it.tvgId == null }.map { EpgNameLogic.key(it.title) }.filter { it.isNotEmpty() }.toSet()
         if (wanted.isEmpty() && nameKeys.isEmpty()) { status = "Playlist enthält keine Sender-IDs (tvg-id)"; return }
+        val dir = c.applicationContext.cacheDir
         job?.cancel()
         job = scope.launch {
             if (delayMs > 0) kotlinx.coroutines.delay(delayMs)
@@ -116,17 +136,31 @@ object Xmltv {
             }
             val byName = HashMap<String, MutableSet<String>>()
             val extra = HashSet<String>()
+            val icon = HashMap<String, String>()
+            // Stored copies of addresses no longer in use are removed (T-055)
+            runCatching { EpgCacheLogic.unused(dir.list()?.toList() ?: emptyList(), all).forEach { File(dir, it).delete() } }
             for (u in all) {
-                try { parse(u, wanted, map, past, nameKeys, byName, extra) } catch (e: Exception) { err = if (e is PlaylistError) e.message else e.javaClass.simpleName }
+                try {
+                    val f = fetch(u, File(dir, EpgCacheLogic.fileName(u)), force)
+                    parse(f, wanted, map, past, nameKeys, byName, extra, icon)
+                } catch (e: Exception) { err = if (e is PlaylistError) e.message else e.javaClass.simpleName }
             }
+            icons.clear()
+            icons.putAll(icon)
             progs.clear()
             for ((k, v) in map) progs[k] = v.sortedBy { it.start }
             byTitle.clear()
+            val titleIcons = HashMap<String, String>()
             for (ch in live) {
                 if (ch.tvgId != null) continue
                 val ids = byName[EpgNameLogic.key(ch.title)] ?: continue
-                EpgNameLogic.pick(ids) { id -> map[id]?.size ?: 0 }?.let { byTitle[ch.title] = it }
+                val id = EpgNameLogic.pick(ids) { g -> map[g]?.size ?: 0 }
+                if (id != null) byTitle[ch.title] = id
+                else ids.sorted().firstNotNullOfOrNull { icon[it] }?.let { titleIcons[ch.title] = it }
             }
+            iconByTitle.clear()
+            iconByTitle.putAll(titleIcons)
+            iconRev++
             channelCount = progs.size
             status = if (progs.isEmpty()) "Keine Programmdaten erhalten (${err ?: "leer"})"
             else if (truncated) "Geladen: ${progs.size} Sender mit Programm (gekürzt, Speicher knapp)"
@@ -148,13 +182,39 @@ object Xmltv {
      * [byName] (name key to guide ids) and their ids in [extra], so their shows are read as well. The channel list of an
      * XMLTV file comes before its shows, so [extra] is complete when the first show is read.
      */
+    /**
+     * The guide file of [url] as a local file (T-055): the stored copy [f] if it is younger than
+     * [EpgCacheLogic.MAX_AGE_MS] and not [force], otherwise a new download. If the download fails, a stored copy up to
+     * [EpgCacheLogic.STALE_MAX_MS] old is used; without one the error is passed on.
+     */
+    private fun fetch(url: String, f: File, force: Boolean): File {
+        val age = if (f.exists() && f.length() > 0) System.currentTimeMillis() - f.lastModified() else -1L
+        if (age >= 0 && EpgCacheLogic.reuse(age, force)) return f
+        val tmp = File(f.parentFile, f.name + ".part")
+        try {
+            client.newCall(Request.Builder().url(url).build()).execute().use { r ->
+                if (!r.isSuccessful) throw PlaylistError("HTTP ${r.code}")
+                val body = r.body ?: throw PlaylistError("leer")
+                FileOutputStream(tmp).use { o -> body.byteStream().use { it.copyTo(o, 1 shl 16) } }
+            }
+            if (tmp.length() == 0L) throw PlaylistError("leer")
+            f.delete()
+            if (!tmp.renameTo(f)) throw PlaylistError("Datei")
+            return f
+        } catch (e: Exception) {
+            tmp.delete()
+            if (age >= 0 && EpgCacheLogic.fallback(age)) return f
+            throw e
+        }
+    }
+
     private fun parse(
-        url: String, wanted: Set<String>, out: HashMap<String, MutableList<EpgEntry>>, past: Map<String, Int> = emptyMap(),
-        nameKeys: Set<String> = emptySet(), byName: HashMap<String, MutableSet<String>> = HashMap(), extra: HashSet<String> = HashSet()
+        src: File, wanted: Set<String>, out: HashMap<String, MutableList<EpgEntry>>, past: Map<String, Int> = emptyMap(),
+        nameKeys: Set<String> = emptySet(), byName: HashMap<String, MutableSet<String>> = HashMap(), extra: HashSet<String> = HashSet(),
+        icons: HashMap<String, String> = HashMap()
     ) {
-        client.newCall(Request.Builder().url(url).build()).execute().use { r ->
-            if (!r.isSuccessful) throw PlaylistError("HTTP ${r.code}")
-            var ins: InputStream = BufferedInputStream((r.body ?: throw PlaylistError("leer")).byteStream())
+        FileInputStream(src).use { raw ->
+            var ins: InputStream = BufferedInputStream(raw)
             ins.mark(2)
             val b1 = ins.read()
             val b2 = ins.read()
@@ -167,16 +227,21 @@ object Xmltv {
             var seen = 0
             var ev = p.eventType
             while (ev != XmlPullParser.END_DOCUMENT) {
-                if (ev == XmlPullParser.START_TAG && p.name == "channel" && nameKeys.isNotEmpty()) {
+                if (ev == XmlPullParser.START_TAG && p.name == "channel") {
                     val cid = p.getAttributeValue(null, "id")?.lowercase()
+                    var ic: String? = null
                     var inner = p.next()
                     while (!(inner == XmlPullParser.END_TAG && p.name == "channel") && inner != XmlPullParser.END_DOCUMENT) {
-                        if (inner == XmlPullParser.START_TAG && p.name == "display-name" && cid != null) {
+                        if (inner == XmlPullParser.START_TAG && p.name == "display-name" && cid != null && nameKeys.isNotEmpty()) {
                             val k = EpgNameLogic.key(p.nextText())
                             if (k in nameKeys) { byName.getOrPut(k) { HashSet() }.add(cid); extra.add(cid) }
+                        } else if (inner == XmlPullParser.START_TAG && p.name == "icon" && ic == null) {
+                            ic = EpgCacheLogic.iconUrl(p.getAttributeValue(null, "src"))
                         }
                         inner = p.next()
                     }
+                    // Icon only for channels of this playlist (by tvg-id or by name), so memory stays small
+                    if (cid != null && ic != null && (cid in wanted || cid in extra)) icons[cid] = ic
                 } else if (ev == XmlPullParser.START_TAG && p.name == "programme") {
                     val ch = p.getAttributeValue(null, "channel")?.lowercase()
                     val s = parseTime(p.getAttributeValue(null, "start"))

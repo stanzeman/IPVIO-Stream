@@ -576,7 +576,7 @@ private fun GuideRow(
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Box(Modifier.size(38.dp).clip(RoundedCornerShape(DS.RadiusXs)).background(DS.Overlay2), contentAlignment = Alignment.Center) {
-                if (ch.logo != null) AsyncImage(ch.logo, null, Modifier.fillMaxSize().padding(3.dp), contentScale = ContentScale.Fit)
+                if (Xmltv.logo(ch) != null) AsyncImage(Xmltv.logo(ch), null, Modifier.fillMaxSize().padding(3.dp), contentScale = ContentScale.Fit)
             }
             Text(
                 ch.title, color = Color.White, fontSize = 14.sp,

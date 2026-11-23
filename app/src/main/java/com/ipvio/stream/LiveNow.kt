@@ -87,8 +87,8 @@ private fun BackdropTint(c: Item, modifier: Modifier) {
         val col = colorFor(c)
         Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(col.copy(alpha = 0.55f), Color.Transparent), radius = 1400f, center = androidx.compose.ui.geometry.Offset(1500f, 380f))))
         Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(lerp(col, Color.White, 0.2f).copy(alpha = 0.22f), Color.Transparent), radius = 900f, center = androidx.compose.ui.geometry.Offset(1900f, 900f))))
-        if (c.logo != null) AsyncImage(
-            c.logo, null,
+        if (Xmltv.logo(c) != null) AsyncImage(
+            Xmltv.logo(c), null,
             Modifier.align(Alignment.TopEnd).padding(top = dpx(60), end = dpx(80)).size(dpx(360)).graphicsLayer { alpha = 0.12f },
             contentScale = ContentScale.Fit
         )

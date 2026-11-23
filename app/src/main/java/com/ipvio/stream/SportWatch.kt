@@ -128,7 +128,7 @@ internal fun WatchPage(g0: SportData.Game, hub: HubCtx) {
         ) else LazyColumn(Modifier.fillMaxWidth().weight(1f), contentPadding = PaddingValues(bottom = dpx(30)), verticalArrangement = Arrangement.spacedBy(dpx(4))) {
             itemsIndexed(hits, key = { _, h -> h.ch.id }) { _, h ->
                 FRow({ hub.play(h.ch, hits.map { it.ch }) }) {
-                    TeamLogo(h.ch.logo, h.ch.title.take(2), dpx(44))
+                    TeamLogo(Xmltv.logo(h.ch), h.ch.title.take(2), dpx(44))
                     Column(Modifier.weight(1f)) {
                         Text(raw = true, text = h.ch.title, color = Tok.TextHi, fontSize = spx(18), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         val why = when (h.why) {
@@ -165,7 +165,7 @@ internal fun ChannelPicker(g: SportData.Game, live: List<Item>, onClose: () -> U
             LazyColumn(Modifier.height(dpx(420)).width(dpx(520)), verticalArrangement = Arrangement.spacedBy(dpx(4))) {
                 itemsIndexed(pool, key = { i, c -> c.id + "#" + i }) { i, c ->
                     FRow({ onPick(c.id) }, req = if (i == 0) first else null) {
-                        TeamLogo(c.logo, c.title.take(2), dpx(30))
+                        TeamLogo(Xmltv.logo(c), c.title.take(2), dpx(30))
                         Text(raw = true, text = c.title, color = Color.White, fontSize = spx(16), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
