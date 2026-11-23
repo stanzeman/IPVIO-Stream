@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Fork only: Settings > Playlists > Edit: "Shown additionally" can be switched on again for a playlist that is not the main list (upstream allows only switching it off since 1.4.2). Movies and series of both lists appear together; Live TV switches the source with the button at the top. Each additional list needs memory. Not device tested yet
 - Docs: README gets an install troubleshooting pointer, a "Privacy and security" section (API keys, backup servers, phone remote over plain HTTP, VPN without kill switch, own DNS), a "Known limitations" section and a link to the test documentation. No app change
 
 ## 1.4.8 (versionCode 14)
