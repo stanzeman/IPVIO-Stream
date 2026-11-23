@@ -6,6 +6,7 @@
 - TV guide (EPG): a downloaded guide file is kept and read again for 12 hours, so the app no longer downloads the whole guide at every start. "Reload" and "Save & load" in the EPG settings always download it fresh. If a download fails, a stored copy up to 7 days old is used. Not device tested yet
 - Channel logos: a channel without a logo in its playlist now shows the icon of its guide channel (XMLTV `icon`). With a Russian provider list and epg.one, 2283 of 2316 channels got a logo (measured outside the app). Not device tested yet
 - TV guide (EPG): channels of a playlist without "tvg-id" now get their guide by name. The app compares the channel name (without HD, FHD, UHD, SD, 4K, upper/lower case, punctuation) with the channel names in the XMLTV file; if several guide channels share a name, the one with the most shows is used. With a Russian provider list and the XMLTV file of epg.one, 1966 of 2316 channels got a guide (measured outside the app). Playlists with "tvg-id" work as before. Enter the XMLTV address under Settings > Live TV (EPG). Not device tested yet
+- Search: the app's own search keyboard has a Russian layer. "АБВ" switches the letters to Cyrillic (ЙЦУКЕН, all 33 letters), "ABC" switches back; the choice stays while the app runs. Not device tested yet
 - Docs: README gets an install troubleshooting pointer, a "Privacy and security" section (API keys, backup servers, phone remote over plain HTTP, VPN without kill switch, own DNS), a "Known limitations" section and a link to the test documentation. No app change
 
 ## 1.4.8 (versionCode 14)

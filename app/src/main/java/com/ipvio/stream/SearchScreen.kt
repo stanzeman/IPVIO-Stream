@@ -448,14 +448,11 @@ internal object SearchSport {
 }
 
 private val KB_DIGITS = "1234567890"
-private val KB_LETTERS = listOf("qwertyuiop", "asdfghjkl", "zxcvbnm")
-private val KB_SYMBOLS = listOf("-/:;()&@\"", ".,?!'+=_%", "#*<>[]{}~")
-// Special letters for other languages (German, French, Spanish, Turkish, Nordic, Slavic ...)
-private val KB_SPECIAL = listOf("äöüßéèêàâç", "ñışğčćšžđå", "øæœíóúáãõ")
+// Letter rows: see KeyboardLogic (Latin, Russian, symbols, special letters; T-056)
 
 /**
  * QWERTY on-screen keyboard: a number row on top (no extra layer needed), three key rows, then layer switch (symbols / special letters),
- * backspace, wide space bar and clear.
+ * backspace, wide space bar and clear. "АБВ" switches the letters to Russian (ЙЦУКЕН) and "ABC" back (T-056).
  */
 @Composable
 internal fun SearchKeyboard(
@@ -465,7 +462,8 @@ internal fun SearchKeyboard(
 ) {
     var symbols by remember { mutableStateOf(false) }
     var special by remember { mutableStateOf(false) }
-    val rows = if (symbols) KB_SYMBOLS else if (special) KB_SPECIAL else KB_LETTERS
+    var cyrillic by remember { mutableStateOf(KeyboardLogic.cyrillic) }
+    val rows = KeyboardLogic.rows(symbols, special, cyrillic)
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         // Number row (always visible)
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
@@ -489,6 +487,9 @@ internal fun SearchKeyboard(
             KbKey("Leer", Modifier.weight(if (onPhone == null) (if (onVoice != null) 3.9f else 4.5f) else if (onVoice != null) 2f else 2.6f), onFocusChange, null) { onSpace() }
             if (onPhone != null) KbKey("Handy", Modifier.weight(1.9f), onFocusChange, null, icon = AIcon.Phone) { onPhone() }
             if (onVoice != null) KbKey("", Modifier.weight(0.9f), onFocusChange, null, icon = AIcon.Mic) { onVoice() }
+            KbKey(KeyboardLogic.alphabetLabel(cyrillic), Modifier.weight(1.3f), onFocusChange, null) {
+                cyrillic = !cyrillic; KeyboardLogic.cyrillic = cyrillic; special = false; symbols = false
+            }
             KbKey(if (special) "abc" else "äöü", Modifier.weight(1.5f), onFocusChange, null) { special = !special; symbols = false }
             KbKey("Alles", Modifier.weight(1.8f), onFocusChange, onRight) { onClear() }
         }
