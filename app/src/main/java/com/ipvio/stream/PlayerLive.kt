@@ -55,7 +55,7 @@ import coil.compose.AsyncImage
 fun LiveInfoBlock(item: Item?, title: String, number: Int, epg: List<EpgEntry>, modifier: Modifier = Modifier) {
     val nowE = Epg.current(epg)
     val nextE = if (nowE != null) epg.firstOrNull { it.start >= nowE.end } else null
-    val logo = item?.logo
+    val logo = item?.let { Xmltv.logo(it) }
     Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
         Box(
             Modifier.size(72.dp).clip(RoundedCornerShape(DS.RadiusM)).background(Color(0x24FFFFFF)),
@@ -100,7 +100,7 @@ fun LiveInfoBlock(item: Item?, title: String, number: Int, epg: List<EpgEntry>, 
 fun LiveBanner(item: Item?, title: String, number: Int, epg: List<EpgEntry>, modifier: Modifier = Modifier) {
     val nowE = Epg.current(epg)
     val nextE = if (nowE != null) epg.firstOrNull { it.start >= nowE.end } else null
-    val logo = item?.logo
+    val logo = item?.let { Xmltv.logo(it) }
     Box(modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xE6000000))))) {
         Row(
             Modifier.fillMaxWidth().padding(start = PT.MarginX, end = PT.MarginX, top = 56.dp, bottom = PT.MarginY),
@@ -293,7 +293,7 @@ fun ChannelOverlay(
                     horizontalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     Box(Modifier.size(54.dp).clip(RoundedCornerShape(DS.RadiusS)).background(Color(0x24FFFFFF)), contentAlignment = Alignment.Center) {
-                        val lg = fc.logo
+                        val lg = Xmltv.logo(fc)
                         if (lg != null) AsyncImage(lg, null, Modifier.fillMaxSize().padding(8.dp), contentScale = ContentScale.Fit)
                         else Text(raw = true, text = fc.title.take(2).uppercase(), color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
                     }
@@ -386,7 +386,8 @@ private fun ChannelRow(item: Item, current: Boolean, modifier: Modifier, onFocus
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Box(Modifier.size(46.dp).clip(RoundedCornerShape(DS.RadiusXs)).background(if (f) Color(0x14000000) else DS.Overlay2), contentAlignment = Alignment.Center) {
-            if (item.logo != null) AsyncImage(item.logo, null, Modifier.fillMaxSize().padding(4.dp), contentScale = ContentScale.Fit)
+            val lgx = Xmltv.logo(item)
+            if (lgx != null) AsyncImage(lgx, null, Modifier.fillMaxSize().padding(4.dp), contentScale = ContentScale.Fit)
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
@@ -452,7 +453,7 @@ private fun RecentChannelChip(item: Item, onLabel: (String) -> Unit, onClick: ()
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Box(Modifier.size(30.dp), contentAlignment = Alignment.Center) {
-            val lg = item.logo
+            val lg = Xmltv.logo(item)
             if (lg != null) AsyncImage(lg, null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
             else Text(raw = true, text = item.title.take(2).uppercase(), color = if (f) Color.Black else Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         }

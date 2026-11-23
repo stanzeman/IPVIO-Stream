@@ -239,7 +239,8 @@ fun LiveCard(item: Item, onClick: () -> Unit, modifier: Modifier = Modifier, onL
                 .background(Brush.linearGradient(listOf(colorFor(item).copy(alpha = .8f), Surf2))),
             contentAlignment = Alignment.Center
         ) {
-            if (item.logo != null) ArtImage(item.logo, item.title, Modifier.fillMaxSize().padding(20.dp), contentScale = ContentScale.Fit)
+            val lgx = Xmltv.logo(item)
+            if (lgx != null) ArtImage(lgx, item.title, Modifier.fillMaxSize().padding(20.dp), contentScale = ContentScale.Fit)
             else Text(raw = true, text = item.title.take(2).uppercase(), color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)
             Text("LIVE", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.align(Alignment.TopStart).padding(10.dp).clip(RoundedCornerShape(DS.RadiusXs))
