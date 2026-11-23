@@ -74,8 +74,16 @@ object Xmltv {
     fun customUrl(c: Context): String = prefs(c).getString("custom", "") ?: ""
     fun setCustom(c: Context, u: String) { prefs(c).edit().putString("custom", u.trim()).apply() }
 
+    /** Channels without a "tvg-id": the guide channel found by name (channel title to lower-case guide id, see [EpgNameLogic]). */
+    private val byTitle = ConcurrentHashMap<String, String>()
+
+    /** Guide id of a channel: its "tvg-id", otherwise the one found by name (null = none). */
+    fun idFor(item: Item): String? = item.tvgId ?: byTitle[item.title]
+
     fun has(id: String?): Boolean = id != null && progs.containsKey(id.lowercase())
+    fun has(item: Item): Boolean = has(idFor(item))
     fun forChannel(id: String?): List<EpgEntry> = if (id == null) emptyList() else progs[id.lowercase()] ?: emptyList()
+    fun forItem(item: Item): List<EpgEntry> = forChannel(idFor(item))
 
     /**
      * Loads the XMLTV program for the visible channels (hidden languages do not even arrive).
@@ -86,8 +94,11 @@ object Xmltv {
     fun start(c: Context, urls: List<String>, items: List<Item>, delayMs: Long = 0L) {
         val all = (urls + listOf(customUrl(c))).filter { it.startsWith("http") }.distinct()
         if (all.isEmpty()) { status = "Keine EPG-Adresse gefunden"; return }
-        val wanted = items.filter { it.kind == Kind.LIVE }.mapNotNull { it.tvgId?.lowercase() }.toSet()
-        if (wanted.isEmpty()) { status = "Playlist enthält keine Sender-IDs (tvg-id)"; return }
+        val live = items.filter { it.kind == Kind.LIVE }
+        val wanted = live.mapNotNull { it.tvgId?.lowercase() }.toSet()
+        // Channels without a "tvg-id" are looked up by name in the guide (T-053)
+        val nameKeys = live.filter { it.tvgId == null }.map { EpgNameLogic.key(it.title) }.filter { it.isNotEmpty() }.toSet()
+        if (wanted.isEmpty() && nameKeys.isEmpty()) { status = "Playlist enthält keine Sender-IDs (tvg-id)"; return }
         job?.cancel()
         job = scope.launch {
             if (delayMs > 0) kotlinx.coroutines.delay(delayMs)
@@ -103,11 +114,19 @@ object Xmltv {
                 val k = id.lowercase()
                 past[k] = maxOf(past[k] ?: 0, d.coerceAtMost(7))
             }
+            val byName = HashMap<String, MutableSet<String>>()
+            val extra = HashSet<String>()
             for (u in all) {
-                try { parse(u, wanted, map, past) } catch (e: Exception) { err = if (e is PlaylistError) e.message else e.javaClass.simpleName }
+                try { parse(u, wanted, map, past, nameKeys, byName, extra) } catch (e: Exception) { err = if (e is PlaylistError) e.message else e.javaClass.simpleName }
             }
             progs.clear()
             for ((k, v) in map) progs[k] = v.sortedBy { it.start }
+            byTitle.clear()
+            for (ch in live) {
+                if (ch.tvgId != null) continue
+                val ids = byName[EpgNameLogic.key(ch.title)] ?: continue
+                EpgNameLogic.pick(ids) { id -> map[id]?.size ?: 0 }?.let { byTitle[ch.title] = it }
+            }
             channelCount = progs.size
             status = if (progs.isEmpty()) "Keine Programmdaten erhalten (${err ?: "leer"})"
             else if (truncated) "Geladen: ${progs.size} Sender mit Programm (gekürzt, Speicher knapp)"
@@ -124,7 +143,15 @@ object Xmltv {
     private fun shortDesc(d: String): String =
         if (d.length <= MAX_DESC) d else d.substring(0, d.lastIndexOf(' ', MAX_DESC).takeIf { it > MAX_DESC / 2 } ?: MAX_DESC) + " …"
 
-    private fun parse(url: String, wanted: Set<String>, out: HashMap<String, MutableList<EpgEntry>>, past: Map<String, Int> = emptyMap()) {
+    /**
+     * [nameKeys] = name keys of channels without a "tvg-id"; the guide channels that carry such a name are collected in
+     * [byName] (name key to guide ids) and their ids in [extra], so their shows are read as well. The channel list of an
+     * XMLTV file comes before its shows, so [extra] is complete when the first show is read.
+     */
+    private fun parse(
+        url: String, wanted: Set<String>, out: HashMap<String, MutableList<EpgEntry>>, past: Map<String, Int> = emptyMap(),
+        nameKeys: Set<String> = emptySet(), byName: HashMap<String, MutableSet<String>> = HashMap(), extra: HashSet<String> = HashSet()
+    ) {
         client.newCall(Request.Builder().url(url).build()).execute().use { r ->
             if (!r.isSuccessful) throw PlaylistError("HTTP ${r.code}")
             var ins: InputStream = BufferedInputStream((r.body ?: throw PlaylistError("leer")).byteStream())
@@ -140,7 +167,17 @@ object Xmltv {
             var seen = 0
             var ev = p.eventType
             while (ev != XmlPullParser.END_DOCUMENT) {
-                if (ev == XmlPullParser.START_TAG && p.name == "programme") {
+                if (ev == XmlPullParser.START_TAG && p.name == "channel" && nameKeys.isNotEmpty()) {
+                    val cid = p.getAttributeValue(null, "id")?.lowercase()
+                    var inner = p.next()
+                    while (!(inner == XmlPullParser.END_TAG && p.name == "channel") && inner != XmlPullParser.END_DOCUMENT) {
+                        if (inner == XmlPullParser.START_TAG && p.name == "display-name" && cid != null) {
+                            val k = EpgNameLogic.key(p.nextText())
+                            if (k in nameKeys) { byName.getOrPut(k) { HashSet() }.add(cid); extra.add(cid) }
+                        }
+                        inner = p.next()
+                    }
+                } else if (ev == XmlPullParser.START_TAG && p.name == "programme") {
                     val ch = p.getAttributeValue(null, "channel")?.lowercase()
                     val s = parseTime(p.getAttributeValue(null, "start"))
                     val e = parseTime(p.getAttributeValue(null, "stop"))
@@ -155,7 +192,7 @@ object Xmltv {
                         inner = p.next()
                     }
                     val pd = if (ch != null) past[ch] ?: 0 else 0
-                    if (ch != null && ch in wanted && s != null && e != null &&
+                    if (ch != null && (ch in wanted || ch in extra) && s != null && e != null &&
                         e > now - (if (pd > 0) pd * 86400L else 3600L) && s < now + 129600 && epgSane(s, e)
                     ) {
                         val l = out.getOrPut(ch) { ArrayList() }
@@ -185,7 +222,7 @@ object Epg {
     fun trim() = cache.clear()
     private val LIVE_RE = Regex("""^(https?://[^/]+)/(?:live/)?([^/]+)/([^/]+)/(\d+)(?:\.\w+)?(?:\?.*)?$""")
 
-    fun supported(item: Item): Boolean = LIVE_RE.matches(item.url) || Xmltv.has(item.tvgId)
+    fun supported(item: Item): Boolean = LIVE_RE.matches(item.url) || Xmltv.has(item)
 
     /** Address of the Xtream program query [action] for a channel or null if the channel has no Xtream address. */
     internal fun xtreamApi(item: Item, action: String): String? {
@@ -232,7 +269,7 @@ object Epg {
     }
 
     private suspend fun nowFresh(item: Item, nowMs: Long, nowSec: Long): List<EpgEntry> {
-        val local = Xmltv.forChannel(item.tvgId).filter { it.end > nowSec }
+        val local = Xmltv.forItem(item).filter { it.end > nowSec }
         if (local.isNotEmpty() && current(local) != null) return local.take(8).also { cache[item.id] = nowMs to it }
         val url = xtreamApi(item, "get_short_epg")
         if (url != null) {
