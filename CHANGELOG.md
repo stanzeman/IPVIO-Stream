@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Search: the app's own search keyboard has a Russian layer. "АБВ" switches the letters to Cyrillic (ЙЦУКЕН, all 33 letters), "ABC" switches back; the choice stays while the app runs. Not device tested yet
 - Docs: README gets an install troubleshooting pointer, a "Privacy and security" section (API keys, backup servers, phone remote over plain HTTP, VPN without kill switch, own DNS), a "Known limitations" section and a link to the test documentation. No app change
 
 ## 1.4.8 (versionCode 14)
