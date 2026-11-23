@@ -161,7 +161,7 @@ fun PosterCard(
     val shape = RoundedCornerShape(DS.RadiusM)
     val live = item.kind == Kind.LIVE
     val img: String? = when {
-        live -> item.logo
+        live -> Xmltv.logo(item)
         m?.poster != null -> cardPoster(m.poster)
         st.done -> item.logo
         else -> null

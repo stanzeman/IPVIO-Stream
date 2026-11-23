@@ -100,7 +100,7 @@ fun BoxScope.ArchivePanel(
         // Header: which channel, which day
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Box(Modifier.size(46.dp).clip(RoundedCornerShape(DS.RadiusS)).background(DS.Overlay2), contentAlignment = Alignment.Center) {
-                val lg = ch?.logo
+                val lg = ch?.let { Xmltv.logo(it) }
                 if (lg != null) AsyncImage(lg, null, Modifier.fillMaxSize().padding(5.dp), contentScale = ContentScale.Fit)
                 else AppIcon(AIcon.Catchup, Accent2, size = 24.dp)
             }
@@ -138,7 +138,7 @@ fun BoxScope.ArchivePanel(
                             onClick = { runCatching { daySel.requestFocus() } }
                         ) {
                             Box(Modifier.size(34.dp).clip(RoundedCornerShape(DS.RadiusXs)).background(DS.Overlay1), contentAlignment = Alignment.Center) {
-                                if (c.logo != null) AsyncImage(c.logo, null, Modifier.fillMaxSize().padding(3.dp), contentScale = ContentScale.Fit)
+                                if (Xmltv.logo(c) != null) AsyncImage(Xmltv.logo(c), null, Modifier.fillMaxSize().padding(3.dp), contentScale = ContentScale.Fit)
                             }
                             Column(Modifier.weight(1f)) {
                                 Text(raw = true, text = c.title, color = Color.White, fontSize = 15.sp, fontWeight = if (sel) FontWeight.Bold else FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)

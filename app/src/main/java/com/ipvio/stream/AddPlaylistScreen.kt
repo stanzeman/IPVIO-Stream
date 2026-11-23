@@ -93,7 +93,7 @@ fun AddPlaylistScreen(onDone: () -> Unit) {
         receiver.onEpg = { u ->
             Handler(Looper.getMainLooper()).post {
                 Xmltv.setCustom(ctx, u)
-                if (PlaylistStore.channels.isNotEmpty()) Xmltv.start(ctx, PlaylistStore.epgUrls, PlaylistStore.channels)
+                if (PlaylistStore.channels.isNotEmpty()) Xmltv.start(ctx, PlaylistStore.epgUrls, PlaylistStore.channels, force = true)
             }
         }
         receiver.onList = { name, bytes ->
