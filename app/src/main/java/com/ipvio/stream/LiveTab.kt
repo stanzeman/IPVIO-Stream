@@ -697,7 +697,7 @@ private fun ChannelLine(item: Item, modifier: Modifier, inList: ChList?, onNewLi
 private fun RowScope.ChannelLineContent(item: Item, epg: List<EpgEntry>, variantCount: Int, dims: RowDims) {
     val nowE = Epg.current(epg)
     val nextE = epg.firstOrNull { nowE != null && it.start >= nowE.end }
-    ChannelLogo(item.logo, item.title, dims.logo)
+    ChannelLogo(Xmltv.logo(item), item.title, dims.logo)
     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(dims.gap)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(raw = true, text = item.title, color = Tok.TextHi, fontSize = dims.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))

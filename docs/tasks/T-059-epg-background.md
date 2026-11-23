@@ -29,3 +29,6 @@ New file `epg_snapshot.bin` in the app's files folder. No SharedPreferences key,
 2. "Reload": Live TV keeps its shows and logos while the new guide is read.
 3. Network off, "Reload": status says the update failed, the old guide stays.
 4. Leave the app running more than 12 hours: the guide is read again in the background (status time changes), no gap.
+
+## Follow-up: guide logos in all channel views (23 Nov 2026)
+The Live TV channel rows still drew the playlist logo only and showed initials ("MO", "PR"). Now these also use `Xmltv.logo(item)`: channel rows (`LiveTab.kt`), player info bar, overlay and channel list (`PlayerLive.kt`), channel tiles on the home screen (`HomeParts.kt`), the large card fallback (`Components.kt`). For movies and series `Xmltv.logo` returns the playlist logo unchanged.
