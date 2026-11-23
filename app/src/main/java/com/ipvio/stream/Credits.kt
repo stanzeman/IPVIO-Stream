@@ -85,7 +85,7 @@ object CreditsRepo {
     suspend fun credits(ctx: Context, m: Meta): Credits? {
         if (m.tmdbId <= 0 || !MetaRepo.enabled()) return null
         val type = if (m.isTv) "tv" else "movie"
-        val k = "$type${m.tmdbId}_${Lang.code()}"
+        val k = "$type${m.tmdbId}_${Lang.metaCode()}"
         mem[k]?.let { return it }
         return withContext(Dispatchers.IO) {
             val f = File(dir(ctx), k)
@@ -143,7 +143,7 @@ object CreditsRepo {
     }
 
     suspend fun person(id: Int): PersonInfo? {
-        val pk = id.toString() + Lang.code()
+        val pk = id.toString() + Lang.metaCode()
         persons[pk]?.let { return it }
         return withContext(Dispatchers.IO) {
             val base = "https://api.themoviedb.org/3/person/$id?api_key=${Config.TMDB_KEY}&append_to_response=combined_credits"

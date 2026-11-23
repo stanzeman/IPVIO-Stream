@@ -43,6 +43,8 @@ object General {
     var lastRefresh by mutableStateOf(0L)
     /** Language: "" = device, otherwise code from Lang.CODES */
     var lang by mutableStateOf("")
+    /** T-061: language of the TMDB title information ("" = like the app language). */
+    var metaLang by mutableStateOf("")
     /** Time zone: "" = system time of the device */
     var tzId by mutableStateOf("")
     /** Time format: 0 = system, 1 = 24 hours, 2 = 12 hours */
@@ -149,6 +151,7 @@ object General {
         refreshDow = p.getInt("refresh_dow", java.util.Calendar.MONDAY).coerceIn(1, 7)
         lastRefresh = p.getLong("last_refresh", 0L)
         lang = p.getString("lang", "") ?: ""
+        metaLang = p.getString("meta_lang", "") ?: ""
         tzId = p.getString("tz_id", "") ?: ""
         timeFmt = p.getInt("time_fmt", 0).coerceIn(0, 2)
         sys24 = android.text.format.DateFormat.is24HourFormat(c)
@@ -189,6 +192,7 @@ object General {
             .putInt("refresh_minute", refreshMinute).putInt("refresh_dow", refreshDow).apply()
         Updater.apply(c)
     }
+    fun setMetaLang(c: Context, v: String) { metaLang = v; prefs(c).edit().putString("meta_lang", v).apply() }
     fun setLang(c: Context, v: String) { lang = v; prefs(c).edit().putString("lang", v).apply(); PlayerLocale.locale = Lang.locale() }
     fun setTz(c: Context, id: String) { tzId = id; prefs(c).edit().putString("tz_id", id).apply() }
     fun setTimeFmt(c: Context, v: Int) { timeFmt = v.coerceIn(0, 2); prefs(c).edit().putInt("time_fmt", timeFmt).apply() }
