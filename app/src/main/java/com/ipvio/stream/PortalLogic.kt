@@ -137,9 +137,6 @@ object PortalLogic {
     const val LIST_FORMAT = 4
     private const val HEAD = "#PORTAL-LIST:"
 
-    /** A full load is done at the latest after this time, so titles the portal removed leave the list. */
-    const val FULL_EVERY_MS = 30L * 24 * 3_600_000L
-
     /** Last line of a stored list: time of the last full load and host of the movie addresses (may be empty). */
     fun head(fullAt: Long, vodHost: String?): String = "$HEAD$LIST_FORMAT full=$fullAt vod=${vodHost.orEmpty()}"
 
@@ -163,8 +160,11 @@ object PortalLogic {
     /** Lines of a stored list that are copied into the updated one (everything but the list start and the head line). */
     fun keepLine(line: String): Boolean = line.isNotBlank() && !line.startsWith("#EXTM3U") && !line.startsWith(HEAD)
 
-    /** true = load everything again: no usable stored list, or the last full load is [FULL_EVERY_MS] old (or in the future). */
-    fun needsFull(fullAt: Long?, now: Long): Boolean = fullAt == null || (now - fullAt) !in 0 until FULL_EVERY_MS
+    /**
+     * true = load everything: there is no usable stored list. A stored list is never replaced by a full load on its own;
+     * only "Reload playlist completely" (it deletes the stored copy) or a changed movie host ([hostGone]) do that.
+     */
+    fun needsFull(fullAt: Long?): Boolean = fullAt == null
 
     /**
      * Stop rule of an update: the portal lists the newest titles first, so a page whose titles are all known means the

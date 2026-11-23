@@ -939,7 +939,7 @@ object PlaylistStore {
         if (pi != null && raw.exists() && raw.length() > 0 && System.currentTimeMillis() - raw.lastModified() < RAW_MAX_AGE) return raw to Charsets.UTF_8
         raw.delete(); part.delete()
         bytesRead = 0L; totalBytes = -1L; downloadDone = false
-        // T-054: with a stored list of the current format (and the last full load younger than 30 days) only new titles are loaded
+        // T-054: with a stored list of the current format only new titles are loaded
         val old = oldPortalList(c, u)
         fun run(o: PortalApi.Old?) {
             val counter = CountingOut(FileOutputStream(part)) { bytesRead = it }
@@ -964,7 +964,7 @@ object PlaylistStore {
 
     /**
      * The stored copy of a portal list for an update (T-054), or null = load everything: no copy, an older format,
-     * no title ids, or the last full load is 30 days old. The copy is read twice (ids now, entries while writing),
+     * or no title ids. The copy is read twice (ids now, entries while writing),
      * so it is never held in memory as a whole.
      */
     private fun oldPortalList(c: Context, u: String): PortalApi.Old? {
@@ -981,7 +981,7 @@ object PlaylistStore {
             }
         }.isSuccess
         val h = head
-        if (!ok || h == null || known.isEmpty() || PortalLogic.needsFull(h.fullAt, System.currentTimeMillis())) return null
+        if (!ok || h == null || known.isEmpty() || PortalLogic.needsFull(h.fullAt)) return null
         return PortalApi.Old(known, h.fullAt, h.vodHost) { w ->
             var n = 0
             GZIPInputStream(FileInputStream(gz)).bufferedReader(Charsets.UTF_8).useLines { lines ->
