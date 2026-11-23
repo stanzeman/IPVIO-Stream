@@ -28,4 +28,10 @@ class PlaylistManageLogicTest {
         assertFalse(PlaylistManageLogic.changes(base, base.copy()).refresh)
         assertTrue(PlaylistManageLogic.changes(base, base.copy(refresh = PlaylistRefreshLogic.Spec(2))).refresh)
     }
+    // Fork (T-058): "shown additionally" can be switched on as well as off
+    @Test fun switchingShownOnOrOffIsAChange() {
+        val off = base.copy(shown = false)
+        assertTrue(PlaylistManageLogic.changes(off, off.copy(shown = true)).shown)
+        assertTrue(PlaylistManageLogic.changes(off.copy(shown = true), off).shown)
+    }
 }

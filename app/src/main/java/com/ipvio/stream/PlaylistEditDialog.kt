@@ -60,7 +60,8 @@ internal fun PlaylistEditDialog(ctx: Context, index: Int, scope: CoroutineScope,
             Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Field(name, { name = it }, "Name der Playlist")
                 SelectRow("Inhalt der Playlist", PlaylistMode.labels[mode], PlaylistMode.labels, mode, active = mode != PlaylistMode.ALL) { mode = it }
-                if (!isActive && orig.shown) {
+                // Fork (T-058): "shown additionally" can be switched on again (upstream allows only switching off since 1.4.2)
+                if (!isActive) {
                     SelectRow("Zusätzlich angezeigt", if (shown) "An" else "Aus", listOf("An", "Aus"), if (shown) 0 else 1) { shown = it == 0 }
                 }
                 RefreshEditor(ctx, url, refresh) { refresh = it }
@@ -98,7 +99,7 @@ internal fun PlaylistEditDialog(ctx: Context, index: Int, scope: CoroutineScope,
                     if (ch.backups) PlaylistStore.setBackups(ctx, url, backups.toList())
                     if (ch.mode) PlaylistMode.set(ctx, url, mode)
                     if (ch.refresh) { PlaylistRefresh.set(ctx, url, refresh); Updater.apply(ctx) }
-                    if (ch.shown && !shown) PlaylistStore.setShown(ctx, index, false)
+                    if (ch.shown) PlaylistStore.setShown(ctx, index, shown)
                     if (ch.mode || ch.shown) scope.launch {
                         // The mode is applied while parsing the stored list again (no download); then the extra lists are rebuilt
                         if (ch.mode && !PlaylistStore.reapplyLanguages(ctx)) PlaylistStore.applyMode(ctx)
