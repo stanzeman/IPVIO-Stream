@@ -88,7 +88,7 @@ class PortalLogicTest {
         val m = PortalLogic.movieEntry(entry("stream", "Title, One", 7, url, 2026, "http://portal.example.test/posters/h/p_1.jpg"), "Movies")!!
         val lines = m.lines()
         assertEquals(2, lines.size)
-        assertTrue(lines[0].startsWith("#EXTINF:-1 tvg-logo=\"http://portal.example.test/posters/h/p_1.jpg\" group-title=\"Movies\","))
+        assertTrue(lines[0].startsWith("#EXTINF:-1 portal-fid=\"7\" tvg-logo=\"http://portal.example.test/posters/h/p_1.jpg\" group-title=\"Movies\","))
         assertTrue(lines[0].endsWith("Title‚ One (2026)"))
         assertEquals(url + "#/movie/", lines[1])
         assertTrue(lines[1].contains("/movie/"))
@@ -200,5 +200,61 @@ class PortalLogicTest {
         assertEquals("shows", PortalLogic.groupFor(series, tv, "shows"))
         assertEquals("movies", PortalLogic.groupFor(series, films, null))
         assertEquals("movies", PortalLogic.groupFor(series, films, " "))
+    }
+
+    // ---------------------------------------------------------------- Update with new titles only (T-054)
+
+    @Test fun entriesCarryTheTitleIdSoAnUpdateKnowsThem() {
+        val src = PortalLogic.Source("http://portal.example.test/api/v1/", "abcdef123")
+        val m = PortalLogic.movieEntry(entry("stream", "Film", 148716, "http://cdn.example.test/vod/k/a.m3u8"), "Movies")!!
+        val s = PortalLogic.seriesEntry(src, entry("multistream", "Serie", 144916), "Series")!!
+        assertEquals(148716, PortalLogic.fidOf(m.lines()[0]))
+        assertEquals(144916, PortalLogic.fidOf(s.lines()[0]))
+        assertNull(PortalLogic.fidOf("#EXTINF:-1 group-title=\"x\",Old entry without id"))
+    }
+
+    @Test fun headLineRoundTrips() {
+        val h = PortalLogic.parseHead(PortalLogic.head(1_700_000_000_000L, "cdn.example.test"))!!
+        assertEquals(1_700_000_000_000L, h.fullAt)
+        assertEquals("cdn.example.test", h.vodHost)
+        assertNull(PortalLogic.parseHead(PortalLogic.head(5L, null))!!.vodHost)
+        assertNull(PortalLogic.parseHead("#PORTAL-LIST:3 full=5 vod=x"))
+        assertNull(PortalLogic.parseHead("#EXTINF:-1,Name"))
+    }
+
+    @Test fun fullLoadAfterThirtyDaysOrWithoutStoredList() {
+        val day = 24 * 3_600_000L
+        val now = 100 * day
+        assertTrue(PortalLogic.needsFull(null, now))
+        assertFalse(PortalLogic.needsFull(now - 29 * day, now))
+        assertTrue(PortalLogic.needsFull(now - 30 * day, now))
+        assertTrue(PortalLogic.needsFull(now + day, now))
+    }
+
+    @Test fun updateStopsAtTheFirstPageWithOnlyKnownTitles() {
+        val known = setOf(1, 2, 3)
+        assertTrue(PortalLogic.pageKnown(listOf(entry("stream", "a", 1), entry("stream", "b", 2)), known))
+        assertFalse(PortalLogic.pageKnown(listOf(entry("stream", "new", 9), entry("stream", "b", 2)), known))
+        assertFalse(PortalLogic.pageKnown(emptyList(), known))
+    }
+
+    @Test fun listStartAndHeadAreNotCopied() {
+        assertFalse(PortalLogic.keepLine("#EXTM3U"))
+        assertFalse(PortalLogic.keepLine(PortalLogic.head(1L, "h")))
+        assertFalse(PortalLogic.keepLine("   "))
+        assertTrue(PortalLogic.keepLine("#EXTINF:-1 portal-fid=\"1\",x"))
+        assertTrue(PortalLogic.keepLine("http://cdn.example.test/vod/a.m3u8#/movie/"))
+    }
+
+    @Test fun hostOfAMovieAddress() {
+        assertEquals("165474e569b7.usanetworkss.com", PortalLogic.hostOf("http://165474E569B7.usanetworkss.com/vod/k/S30/1/0/master.m3u8"))
+        assertNull(PortalLogic.hostOf("portal://1/series/2.ser"))
+    }
+
+    @Test fun fullLoadOnlyWhenTheStoredMovieHostIsGone() {
+        assertTrue(PortalLogic.hostGone("a.test", setOf("b.test")))
+        assertFalse(PortalLogic.hostGone("a.test", setOf("a.test", "b.test")))
+        assertFalse(PortalLogic.hostGone("a.test", emptySet()))
+        assertFalse(PortalLogic.hostGone(null, setOf("b.test")))
     }
 }

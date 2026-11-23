@@ -102,7 +102,18 @@ object PortalApi {
     /** Titles of a category: the first [MAX_PAGES] pages, newest first. [ok] false = not even the first page came. */
     private class Loaded(val rows: List<PortalLogic.Entry>, val ok: Boolean, val cutOff: Boolean = false)
 
-    private fun loadCategory(src: PortalLogic.Source, c: PortalLogic.Cat, check: () -> Unit, onCount: (Int) -> Unit): Loaded {
+    /**
+     * The stored list for an update (T-054): [known] = title ids already in it, [fullAt] = time of the last full load,
+     * [vodHost] = host of its movie addresses, [copy] writes its entries into the new list and returns their number.
+     */
+    class Old(val known: Set<Int>, val fullAt: Long, val vodHost: String?, val copy: (Writer) -> Int)
+
+    /** The portal now hands out movies from another host: the stored addresses may be dead, so load everything. */
+    class StaleList : Exception("stale")
+
+    private fun loadCategory(
+        src: PortalLogic.Source, c: PortalLogic.Cat, check: () -> Unit, onCount: (Int) -> Unit, old: Old? = null
+    ): Loaded {
         val rows = ArrayList<PortalLogic.Entry>()
         var req: Map<String, Any> = c.request
         var offset = 0
@@ -112,6 +123,13 @@ object PortalApi {
             val p = page(o)
             rows.addAll(p.entries)
             onCount(rows.size)
+            if (old != null) {
+                // Movies now come from other hosts only: stored addresses would point to the old host
+                val hosts = p.entries.mapNotNull { e -> if (e.type == "stream") PortalLogic.hostOf(e.url) else null }.toSet()
+                if (PortalLogic.hostGone(old.vodHost, hosts)) throw StaleList()
+                // Newest first: a page of known titles means the rest is known
+                if (PortalLogic.pageKnown(p.entries, old.known)) return Loaded(rows, true)
+            }
             val nx = PortalLogic.nextOffset(p.next, offset) ?: return Loaded(rows, true)
             offset = nx
             req = PortalLogic.nextRequest(c.request, nx)
@@ -124,7 +142,7 @@ object PortalApi {
      * Write the list to [out] (M3U): the newest titles of every category (movies and series placeholders). [onPhase] =
      * progress, [check] throws on abort. Return value: number of entries.
      */
-    fun write(src: PortalLogic.Source, out: Writer, onPhase: (String) -> Unit, check: () -> Unit): Int {
+    fun write(src: PortalLogic.Source, out: Writer, onPhase: (String) -> Unit, check: () -> Unit, old: Old? = null): Int {
         onPhase("Zugang wird geprüft …")
         val root = post(src, emptyMap()) ?: throw PlaylistError(
             "Das Portal antwortet nicht" + (if (note.isNotEmpty()) " ($note)" else "") + ". Adresse und Key prüfen."
@@ -132,9 +150,15 @@ object PortalApi {
         val cats = categories(root)
         if (cats.isEmpty()) throw PlaylistError("Das Portal hat keine Kategorien geliefert. Adresse und Key prüfen.")
         out.write("#EXTM3U\n")
-        onPhase("Kategorien werden geladen …")
         var n = 0
-        val seen = HashSet<Int>()
+        // Update (T-054): the stored titles first, then only what is new
+        if (old != null) {
+            onPhase("Gespeicherte Titel werden übernommen …")
+            n = old.copy(out)
+        }
+        onPhase(if (old != null) "Neue Titel werden gesucht …" else "Kategorien werden geladen …")
+        val seen = HashSet<Int>(old?.known ?: emptySet())
+        var vodHost: String? = null
         var failedInRow = 0
         var cooldowns = 0
         var lookups = 0
@@ -148,7 +172,8 @@ object PortalApi {
                 wait()
             }
             if (failedInRow >= GIVE_UP_AFTER) continue
-            val l = loadCategory(src, c, check) { cnt -> onPhase("Kategorien werden geladen (${idx + 1}/${cats.size}) – ${n + cnt} Titel …") }
+            val l = if (old != null) loadCategory(src, c, check, { onPhase("Neue Titel werden gesucht (${idx + 1}/${cats.size}) …") }, old)
+            else loadCategory(src, c, check, { cnt -> onPhase("Kategorien werden geladen (${idx + 1}/${cats.size}) – ${n + cnt} Titel …") })
             if (l.cutOff) {
                 // The portal stopped answering in the middle of a category: say so (the titles loaded so far stay in the list)
                 onPhase("Kategorie unvollständig (${note.ifEmpty { "keine Antwort" }}), geladen: ${l.rows.size} Titel …")
@@ -171,10 +196,16 @@ object PortalApi {
                 if (e.fid <= 0 || !seen.add(e.fid)) continue
                 val group = PortalLogic.groupFor(e, c, seriesTitle)
                 val line = if (e.type == "multistream") PortalLogic.seriesEntry(src, e, group) else PortalLogic.movieEntry(e, group)
-                if (line != null) { out.write(line); out.write("\n"); n++ }
+                if (line != null) {
+                    out.write(line); out.write("\n"); n++
+                    if (vodHost == null && e.type == "stream") vodHost = PortalLogic.hostOf(e.url)
+                }
             }
             onPhase("Kategorien werden geladen (${idx + 1}/${cats.size}) …")
         }
+        // Last line: time of the last full load and the movie host, read by the next update
+        out.write(PortalLogic.head(old?.fullAt ?: System.currentTimeMillis(), vodHost ?: old?.vodHost))
+        out.write("\n")
         out.flush()
         if (n == 0) {
             val why = if (note.isNotEmpty()) " ($note)" else ""
