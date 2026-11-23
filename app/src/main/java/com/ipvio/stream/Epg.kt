@@ -68,7 +68,6 @@ object EpgNet {
 object Xmltv {
     var status by mutableStateOf("Noch nicht geladen")
     var channelCount by mutableStateOf(0)
-    private val progs = ConcurrentHashMap<String, List<EpgEntry>>()
     private val client = Net.withTimeouts(20, 180)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var job: Job? = null
@@ -77,37 +76,68 @@ object Xmltv {
     fun customUrl(c: Context): String = prefs(c).getString("custom", "") ?: ""
     fun setCustom(c: Context, u: String) { prefs(c).edit().putString("custom", u.trim()).apply() }
 
-    /** Channels without a "tvg-id": the guide channel found by name (channel title to lower-case guide id, see [EpgNameLogic]). */
-    private val byTitle = ConcurrentHashMap<String, String>()
+    /**
+     * The guide shown now (T-059): shows per guide id, name matches (T-053), icons (T-055). A new read replaces it in one
+     * step when it is complete, so shows and logos never disappear while the guide is read again.
+     */
+    @Volatile private var data = EpgData.EMPTY
+    /** When the shown guide was read (0 = never) and for what (see [EpgSnapshot.sig]). */
+    @Volatile private var loadedAt = 0L
+    @Volatile private var loadedSig = 0L
 
     /** Guide id of a channel: its "tvg-id", otherwise the one found by name (null = none). */
-    fun idFor(item: Item): String? = item.tvgId ?: byTitle[item.title]
+    fun idFor(item: Item): String? = item.tvgId ?: data.byTitle[item.title]
 
-    fun has(id: String?): Boolean = id != null && progs.containsKey(id.lowercase())
+    fun has(id: String?): Boolean = id != null && data.progs.containsKey(id.lowercase())
     fun has(item: Item): Boolean = has(idFor(item))
-    fun forChannel(id: String?): List<EpgEntry> = if (id == null) emptyList() else progs[id.lowercase()] ?: emptyList()
+    fun forChannel(id: String?): List<EpgEntry> = if (id == null) emptyList() else data.progs[id.lowercase()] ?: emptyList()
     fun forItem(item: Item): List<EpgEntry> = forChannel(idFor(item))
 
-    /** Channel icons from the guide (lower-case guide id to address), for channels whose playlist has no logo (T-055). */
-    private val icons = ConcurrentHashMap<String, String>()
-
-    /** Icons of channels found by name whose guide channel has no shows (channel title to icon address). */
-    private val iconByTitle = ConcurrentHashMap<String, String>()
-
-    /** Changes when new icons arrive, so channel lists already on screen draw them (read in [logo]). */
+    /** Changes when a new guide is shown, so channel lists already on screen draw new logos (read in [logo]). */
     private var iconRev by mutableStateOf(0)
 
     /** Logo of a channel: the playlist's own, otherwise the icon of its guide channel (null = none). */
     fun logo(item: Item): String? {
         item.logo?.let { return it }
         if (item.kind != Kind.LIVE || iconRev < 0) return null
-        return idFor(item)?.let { icons[it.lowercase()] } ?: iconByTitle[item.title]
+        val d = data
+        val id = item.tvgId ?: d.byTitle[item.title]
+        return id?.let { d.icons[it.lowercase()] } ?: d.iconByTitle[item.title]
+    }
+
+    private fun show(d: EpgData, at: Long, sig: Long, note: String) {
+        data = d; loadedAt = at; loadedSig = sig
+        channelCount = d.progs.size
+        iconRev++
+        status = if (d.progs.isEmpty()) "Keine Programmdaten erhalten ($note)" else "Geladen: ${d.progs.size} Sender mit Programm$note"
+    }
+
+    /** Last call of [start], for the background refresh while the app runs. */
+    private class Args(val c: Context, val urls: List<String>, val items: List<Item>)
+    @Volatile private var last: Args? = null
+    private var ticker: Job? = null
+
+    /** While the app runs: every [EpgSnapshot.CHECK_EVERY_MS] check whether the guide is 12 hours old, then read it again. */
+    private fun ensureTicker() {
+        if (ticker?.isActive == true) return
+        ticker = scope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(EpgSnapshot.CHECK_EVERY_MS)
+                val a = last ?: continue
+                if (job?.isActive != true && EpgSnapshot.refreshDue(loadedAt, System.currentTimeMillis())) start(a.c, a.urls, a.items)
+            }
+        }
     }
 
     /**
      * Loads the XMLTV program for the visible channels (hidden languages do not even arrive).
      * Only what is needed is stored: window −1 h to +36 h, at most 80 shows per channel, description shortened,
      * equal titles only once. If memory gets tight, parsing stops and keeps what has been read so far.
+     *
+     * T-059: the read guide is stored on the device. A stored guide for the same addresses and channels, younger than
+     * 36 hours, is shown at once after a start; it is read again only when it is 12 hours old (also while the app runs),
+     * when the channels change, or when [force] is set ("Reload", "Save & load"). The guide on screen stays until the
+     * new one is complete.
      */
     /** [delayMs]: at app start the guide waits a little so the home screen and the playlist get the CPU first. */
     fun start(c: Context, urls: List<String>, items: List<Item>, delayMs: Long = 0L, force: Boolean = false) {
@@ -118,38 +148,52 @@ object Xmltv {
         // Channels without a "tvg-id" are looked up by name in the guide (T-053)
         val nameKeys = live.filter { it.tvgId == null }.map { EpgNameLogic.key(it.title) }.filter { it.isNotEmpty() }.toSet()
         if (wanted.isEmpty() && nameKeys.isEmpty()) { status = "Playlist enthält keine Sender-IDs (tvg-id)"; return }
-        val dir = c.applicationContext.cacheDir
+        // Channels with archive (catchup): also keep past shows (at most 7 days, memory)
+        val past = HashMap<String, Int>()
+        for (it in items) {
+            val id = it.tvgId ?: continue
+            val d = Catchup.of(it)?.days ?: continue
+            val k = id.lowercase()
+            past[k] = maxOf(past[k] ?: 0, d.coerceAtMost(7))
+        }
+        val app = c.applicationContext
+        val dir = app.cacheDir
+        val snapFile = File(app.filesDir, EpgSnapshot.FILE)
+        val sig = EpgSnapshot.sig(all, wanted, nameKeys, past)
+        last = Args(app, urls, items)
+        ensureTicker()
         job?.cancel()
         job = scope.launch {
+            val now = System.currentTimeMillis()
+            // 1. Stored guide for the same channels: show it at once (no reading, no download)
+            if (loadedSig != sig && !force) {
+                val st = runCatching { if (snapFile.exists()) java.io.FileInputStream(snapFile).use { EpgSnapshot.read(it) } else null }.getOrNull()
+                if (st != null && EpgSnapshot.usable(st.savedAt, st.sig, sig, now)) show(st.data, st.savedAt, st.sig, "")
+            }
+            // 2. Shown guide fits and is younger than 12 hours: nothing to do
+            if (!force && loadedSig == sig && !EpgSnapshot.refreshDue(loadedAt, now)) return@launch
             if (delayMs > 0) kotlinx.coroutines.delay(delayMs)
-            status = "Wird geladen …"
+            val visibleBefore = data.progs.isNotEmpty()
+            if (!visibleBefore) status = "Wird geladen …"
             val map = HashMap<String, MutableList<EpgEntry>>()
             var err: String? = null
             truncated = false
-            // Channels with archive (catchup): also keep past shows (at most 7 days, memory)
-            val past = HashMap<String, Int>()
-            for (it in items) {
-                val id = it.tvgId ?: continue
-                val d = Catchup.of(it)?.days ?: continue
-                val k = id.lowercase()
-                past[k] = maxOf(past[k] ?: 0, d.coerceAtMost(7))
-            }
             val byName = HashMap<String, MutableSet<String>>()
             val extra = HashSet<String>()
             val icon = HashMap<String, String>()
             // Stored copies of addresses no longer in use are removed (T-055)
             runCatching { EpgCacheLogic.unused(dir.list()?.toList() ?: emptyList(), all).forEach { File(dir, it).delete() } }
+            // A due refresh downloads again; a changed channel list reads the stored file (if younger than 12 hours)
+            val download = force || (loadedSig == sig && EpgSnapshot.refreshDue(loadedAt, now))
             for (u in all) {
                 try {
-                    val f = fetch(u, File(dir, EpgCacheLogic.fileName(u)), force)
+                    val f = fetch(u, File(dir, EpgCacheLogic.fileName(u)), download)
                     parse(f, wanted, map, past, nameKeys, byName, extra, icon)
                 } catch (e: Exception) { err = if (e is PlaylistError) e.message else e.javaClass.simpleName }
             }
-            icons.clear()
-            icons.putAll(icon)
-            progs.clear()
+            val progs = HashMap<String, List<EpgEntry>>(map.size * 2)
             for ((k, v) in map) progs[k] = v.sortedBy { it.start }
-            byTitle.clear()
+            val byTitle = HashMap<String, String>()
             val titleIcons = HashMap<String, String>()
             for (ch in live) {
                 if (ch.tvgId != null) continue
@@ -158,13 +202,21 @@ object Xmltv {
                 if (id != null) byTitle[ch.title] = id
                 else ids.sorted().firstNotNullOfOrNull { icon[it] }?.let { titleIcons[ch.title] = it }
             }
-            iconByTitle.clear()
-            iconByTitle.putAll(titleIcons)
-            iconRev++
-            channelCount = progs.size
-            status = if (progs.isEmpty()) "Keine Programmdaten erhalten (${err ?: "leer"})"
-            else if (truncated) "Geladen: ${progs.size} Sender mit Programm (gekürzt, Speicher knapp)"
-            else "Geladen: ${progs.size} Sender mit Programm"
+            val fresh = EpgData(progs, byTitle, icon, titleIcons)
+            // A failed read never replaces a shown guide of the same channels
+            if (!EpgSnapshot.replace(data, fresh, sameChannels = loadedSig == sig)) {
+                status = "Geladen: ${data.progs.size} Sender mit Programm (Aktualisierung fehlgeschlagen: ${err ?: "leer"})"
+                return@launch
+            }
+            val at = System.currentTimeMillis()
+            show(fresh, at, sig, if (progs.isEmpty()) (err ?: "leer") else if (truncated) " (gekürzt, Speicher knapp)" else "")
+            // Keep it for the next start (written to a temporary file first, then renamed)
+            if (progs.isNotEmpty()) runCatching {
+                val tmp = File(snapFile.parentFile, snapFile.name + ".tmp")
+                FileOutputStream(tmp).use { EpgSnapshot.write(it, fresh, at, sig) }
+                snapFile.delete()
+                tmp.renameTo(snapFile)
+            }
         }
     }
 
