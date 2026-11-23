@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Live TV as tiles: new switch "Live TV as tiles" in Settings > Live TV. Categories appear as tiles (name, number of channels, a few logos); OK opens a grid of channel cards (logo, name, quality, current show with progress, next show). A bar at the top has TV guide, search, favorites, multi view, source and back to the list view. Menu key on a card opens the channel menu; Back returns to the categories. The list view is unchanged and stays the default. Not device tested yet
 - TV guide (EPG): the read guide (shows, channel matches, logos) is stored on the device and shown at once after a restart, for up to 36 hours. It is read again every 12 hours, also while the app keeps running (checked every 30 minutes), and when the channel list changes. The guide on screen stays until the new one is complete, so shows and logos no longer disappear during an update; a failed update keeps the old guide. Not device tested yet
 - TV guide (EPG): a downloaded guide file is kept and read again for 12 hours, so the app no longer downloads the whole guide at every start. "Reload" and "Save & load" in the EPG settings always download it fresh. If a download fails, a stored copy up to 7 days old is used. Not device tested yet
 - Channel logos: a channel without a logo in its playlist now shows the icon of its guide channel (XMLTV `icon`) in the Live TV list, the player and on the home screen. With a Russian provider list and epg.one, 2283 of 2316 channels got a logo (measured outside the app). Not device tested yet

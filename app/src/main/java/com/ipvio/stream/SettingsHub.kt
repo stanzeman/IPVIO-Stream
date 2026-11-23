@@ -1294,6 +1294,7 @@ private fun LivePage(ctx: Context) {
     val rowSizes = listOf("Klein", "Normal", "Groß")
     SelectRow("Senderzeilen", rowSizes[General.channelRowSize], rowSizes, General.channelRowSize) { General.setChannelRowSize(ctx, it) }
     Hint("Kleinere Zeilen zeigen mehr Sender auf einmal, das hilft auf großen Fernsehern. Größere Zeilen lassen sich aus der Ferne leichter lesen.")
+    ToggleRow("Live TV als Kacheln", "Kategorien und Sender als Kacheln statt als Liste. Oben: TV-Guide, Suche, Favoriten, Mehrfachansicht. OK öffnet eine Kategorie, Zurück führt zu den Kategorien.", General.liveGrid) { General.setLiveGrid(ctx, it) }
     Hint("Die App sucht die Programmdaten automatisch (Xtream-Schnittstelle oder XMLTV-Adresse aus der Playlist). Wenn dein Anbieter eine eigene XMLTV-Adresse nennt, trage sie hier ein.")
     Field(url, { url = it }, "https://…/xmltv.php?username=…&password=…")
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
