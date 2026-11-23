@@ -96,6 +96,8 @@ private fun FocusedNowPanel(focused: State<Item?>, fallback: Item?, compact: Boo
 
 @Composable
 fun LiveTab(liveAll: List<Item>, groupsAll: Map<String, List<Item>>, favsAll: List<Item>, onOpen: (Item) -> Unit, onPlayNow: (Item) -> Unit = onOpen) {
+    // T-060: tile view instead of the three-column list (Settings > Live TV > "Live TV als Kacheln")
+    if (General.liveGrid) { LiveGrid(liveAll, groupsAll, favsAll, onOpen, onPlayNow); return }
     val ctx = LocalContext.current
     // Several playlists: switch source with one press (All → Playlist 1 → Playlist 2 → …)
     val srcNames = PlaylistStore.sourceNames
