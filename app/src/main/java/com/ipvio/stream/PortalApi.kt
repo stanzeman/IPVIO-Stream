@@ -223,6 +223,28 @@ object PortalApi {
         return PortalLogic.singleAsMovie(e, items)
     }
 
+    /** Answers of the portal search per source and query (the same input does not ask the portal twice). */
+    private val searchCache = LruCache<String, List<PortalLogic.Entry>>(40)
+
+    /**
+     * Search all stored portal lists on the server (T-057): hits as titles of the app, without those already in the
+     * local list ([have] = their addresses). Runs on the caller's thread (network); an empty list on any problem.
+     */
+    fun searchItems(query: String, have: Set<String>): List<Item> {
+        val q = PortalLogic.searchQuery(query) ?: return emptyList()
+        val sources = PlaylistStore.lists.asSequence().mapNotNull { PortalLogic.parse(it.url) }.distinctBy { it.id }.take(3).toList()
+        val out = ArrayList<Item>()
+        for (src in sources) {
+            val key = "${src.id}|${q.lowercase()}"
+            val entries = searchCache[key] ?: run {
+                val o = post(src, mapOf("cmd" to "search", "query" to q)) ?: return@run null
+                page(o).entries.also { searchCache[key] = it }
+            } ?: continue
+            entries.mapNotNullTo(out) { PortalLogic.searchItem(src, it, "Portal") }
+        }
+        return PortalLogic.newHits(out, have)
+    }
+
     private fun sourceOf(id: Int): PortalLogic.Source? =
         PlaylistStore.lists.asSequence().mapNotNull { PortalLogic.parse(it.url) }.firstOrNull { it.id == id }
 

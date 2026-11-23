@@ -257,4 +257,32 @@ class PortalLogicTest {
         assertFalse(PortalLogic.hostGone("a.test", emptySet()))
         assertFalse(PortalLogic.hostGone(null, setOf("b.test")))
     }
+
+    // ---------------------------------------------------------------- Search on the portal (T-057)
+
+    @Test fun searchQueryIsTrimmedAndNeedsTwoCharacters() {
+        assertEquals("mr bean", PortalLogic.searchQuery("  mr   bean "))
+        assertNull(PortalLogic.searchQuery(" m "))
+        assertEquals(60, PortalLogic.searchQuery("x".repeat(80))!!.length)
+    }
+
+    @Test fun searchHitsBecomeMoviesAndLazySeries() {
+        val src = PortalLogic.Source("http://portal.example.test/api/v1/", "abcdef123")
+        val m = PortalLogic.searchItem(src, entry("stream", "Film", 148716, "http://cdn.example.test/vod/k/a.m3u8", 2026, "http://p.example.test/1.jpg"), "Portal")!!
+        assertEquals(Kind.MOVIE, m.kind)
+        assertEquals("http://cdn.example.test/vod/k/a.m3u8#/movie/", m.url)
+        assertEquals(2026, m.year)
+        val s = PortalLogic.searchItem(src, entry("multistream", "Мистер Бин на отдыхе", 144916, year = 2007), "Portal")!!
+        assertEquals(Kind.SERIES, s.kind)
+        assertTrue(PortalLogic.isLazy(s))
+        assertEquals(144916, PortalLogic.seriesRef(s.url)!!.fid)
+        assertNull(PortalLogic.searchItem(src, entry("stream", "No address", 5), "Portal"))
+    }
+
+    @Test fun hitsAlreadyInTheListAreLeftOut() {
+        val src = PortalLogic.Source("http://portal.example.test/api/v1/", "abcdef123")
+        val a = PortalLogic.searchItem(src, entry("stream", "A", 1, "http://cdn.example.test/a.m3u8"), "Portal")!!
+        val b = PortalLogic.searchItem(src, entry("stream", "B", 2, "http://cdn.example.test/b.m3u8"), "Portal")!!
+        assertEquals(listOf(b), PortalLogic.newHits(listOf(a, b, b), setOf(a.url)))
+    }
 }

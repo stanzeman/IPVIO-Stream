@@ -185,6 +185,39 @@ object PortalLogic {
      */
     fun hostGone(stored: String?, seen: Set<String>): Boolean = stored != null && seen.isNotEmpty() && stored !in seen
 
+    // ------------------------------------------------------------------ Search on the portal (T-057)
+
+    /** Shortest query sent to the portal (shorter ones would list half the catalogue). */
+    const val SEARCH_MIN = 2
+
+    /** Query as sent to the portal: trimmed, inner spaces collapsed, at most 60 characters; null = too short. */
+    fun searchQuery(q: String): String? = q.trim().split(Regex("\\s+")).joinToString(" ").take(60).takeIf { it.length >= SEARCH_MIN }
+
+    /**
+     * A search hit of the portal as a title of the app: a movie with its stream address (plus [MOVIE_MARK]) or a series
+     * with the placeholder of [seriesUrl] (episodes come when it is opened). [group] = row label. null = unusable hit.
+     */
+    fun searchItem(src: Source, e: Entry, group: String): Item? {
+        val t = name(e.title).ifEmpty { return null }
+        val year = e.year.takeIf { it in 1850..2100 }
+        val logo = e.img.trim().takeIf { isHttp(it) }
+        return when {
+            e.type == "stream" && isHttp(e.url) && e.url.none { it.isWhitespace() } ->
+                Item("portal:m:${src.id}:${e.fid}", Kind.MOVIE, t, year, movieUrl(e.url), logo, group)
+            e.type == "multistream" && e.fid > 0 -> {
+                val u = seriesUrl(src.id, e.fid)
+                Item("portal:s:${src.id}:${e.fid}", Kind.SERIES, t, year, u, logo, group, listOf(Episode(1, 1, EpTitles.of(1), u)))
+            }
+            else -> null
+        }
+    }
+
+    /** Hits not yet in the local list ([have] = addresses of titles already there), at most [max]. */
+    fun newHits(hits: List<Item>, have: Set<String>, max: Int = 60): List<Item> {
+        val seen = HashSet<String>()
+        return hits.filter { it.url !in have && seen.add(it.url) }.take(max)
+    }
+
     // ------------------------------------------------------------------ Series placeholder
 
     fun seriesUrl(sourceId: Int, fid: Int): String = "portal://$sourceId/series/$fid.ser"
