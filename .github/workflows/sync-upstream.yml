@@ -29,7 +29,7 @@ jobs:
           git merge --no-ff --no-edit -m "Sync with upstream main [skip ci]" upstream/main || { git merge --abort; echo "Conflict on main"; exit 1; }
           git push origin main
           FAILED=""
-          for BR in feat/T-036-vportal-source fix/T-037-extgrp-categories feat/T-053-epg-name-match feat/T-054-portal-incremental feat/T-055-epg-cache-logos feat/T-056-cyrillic-keyboard feat/T-057-portal-search feat/T-058-also-show my-build; do
+          for BR in feat/T-036-vportal-source fix/T-037-extgrp-categories feat/T-053-epg-name-match feat/T-054-portal-incremental feat/T-055-epg-cache-logos feat/T-056-cyrillic-keyboard feat/T-057-portal-search feat/T-058-also-show feat/T-059-epg-background my-build; do
             if git ls-remote --exit-code --heads origin "$BR" >/dev/null; then
               git fetch origin "$BR"
               git checkout -q -B "$BR" "origin/$BR"
