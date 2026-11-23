@@ -222,13 +222,11 @@ class PortalLogicTest {
         assertNull(PortalLogic.parseHead("#EXTINF:-1,Name"))
     }
 
-    @Test fun fullLoadAfterThirtyDaysOrWithoutStoredList() {
-        val day = 24 * 3_600_000L
-        val now = 100 * day
-        assertTrue(PortalLogic.needsFull(null, now))
-        assertFalse(PortalLogic.needsFull(now - 29 * day, now))
-        assertTrue(PortalLogic.needsFull(now - 30 * day, now))
-        assertTrue(PortalLogic.needsFull(now + day, now))
+    @Test fun fullLoadOnlyWithoutStoredList() {
+        val year = 365L * 24 * 3_600_000L
+        assertTrue(PortalLogic.needsFull(null))
+        assertFalse(PortalLogic.needsFull(0L))
+        assertFalse(PortalLogic.needsFull(System.currentTimeMillis() - 2 * year))
     }
 
     @Test fun updateStopsAtTheFirstPageWithOnlyKnownTitles() {
