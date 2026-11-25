@@ -365,7 +365,6 @@ fun HomeScreen(
     val vodBase = if (tab == 1) movies else series
     val vodTop = if (tab == 1) topM else topS
     val vodNewest = if (tab == 1) data.newM else data.newS
-    val vodLocal = if (tab == 1) data.ruM else data.ruS
     val vodNoun = if (tab == 1) "Filme" else "Serien"
     val openCats: () -> Unit = {
         scope.launch {
@@ -414,7 +413,6 @@ fun HomeScreen(
         HeaderTab("Beliebt & neu", AIcon.Star, "tb:top$tab") { onBrowse(BrowseReq("Beliebt & neu · $vodNoun", vodTop, SORT_PLAYLIST)) },
         HeaderTab("Neue Titel", AIcon.Pulse, "tb:newt$tab") { onBrowse(BrowseReq("Neue Titel · $vodNoun", vodNewest, SORT_PLAYLIST)) },
         HeaderTab("Neu hinzugefügt", AIcon.Sparkle, "tb:new$tab") { onBrowse(BrowseReq("Neu hinzugefügt · $vodNoun", vodBase, SORT_NEW)) },
-        HeaderTab("Russisch & Kasachisch", AIcon.Globe, "tb:ru$tab") { onBrowse(BrowseReq("Russisch & Kasachisch · $vodNoun", vodLocal, SORT_PLAYLIST)) },
         HeaderTab("Alle $vodNoun", AIcon.Grid, "tb:all$tab") { onBrowse(BrowseReq("Alle $vodNoun", vodBase, SORT_NEW)) }
     ) + importedTabs.map { (src, l, id) -> HeaderTab(src, AIcon.Download, id) { onBrowse(BrowseReq("$src · $vodNoun", l, SORT_NEW)) } }
     var inHeader by remember { mutableStateOf(false) }
@@ -735,6 +733,13 @@ fun HomeScreen(
                                     } }
                                     "tops" -> { if (topS.size >= 8) item(key = "tops") {
                                         ItemsRow("Beliebt & neu · Serien", topS, cardW, onOpen) { onBrowse(BrowseReq("Beliebt & neu · Serien", topS, SORT_PLAYLIST)) }
+                                    } }
+                                    // "Russian & Kazakh" on the home screen (T-069): same lists as in the Movies and Series tabs, hidden by default
+                                    "rum" -> { if (data.ruM.size >= 3) item(key = "rum") {
+                                        ItemsRow("Russisch & Kasachisch · Filme", data.ruM.take(40), cardW, onOpen) { onBrowse(BrowseReq("Russisch & Kasachisch · Filme", data.ruM, SORT_PLAYLIST)) }
+                                    } }
+                                    "rus" -> { if (data.ruS.size >= 3) item(key = "rus") {
+                                        ItemsRow("Russisch & Kasachisch · Serien", data.ruS.take(40), cardW, onOpen) { onBrowse(BrowseReq("Russisch & Kasachisch · Serien", data.ruS, SORT_PLAYLIST)) }
                                     } }
                                     "sg" -> { seriesG.entries.take(3).forEach { (g, l) ->
                                         item(key = "s$g") { ItemsRow("Serien · $g", l, cardW, onOpen) { onBrowse(BrowseReq("Serien · $g", l, SORT_NEW)) } }
