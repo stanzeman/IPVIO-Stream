@@ -410,6 +410,11 @@ private fun RegionPage(ctx: Context) {
         General.setLang(ctx, if (it == 0) "" else I18nCore.CODES[it - 1])
     }
     Hint("Alle Menüs und Hinweise erscheinen in dieser Sprache. Beschreibungen, Besetzung und Titel-Infos kommen von TMDB und werden in derselben Sprache geladen, sobald du einen Titel öffnest. Namen von Sendern, Filmen und Kategorien stammen von deinem Anbieter und bleiben unverändert.")
+    // T-061: own language for the title information from TMDB (menus stay in the app language)
+    val mi = MetaLangLogic.index(General.metaLang)
+    val metaOpts = listOf(Lang.tr(MetaLangLogic.NAMES[0])) + MetaLangLogic.NAMES.drop(1)
+    SelectRow("Sprache der Titel-Infos", metaOpts[mi], metaOpts, mi) { General.setMetaLang(ctx, MetaLangLogic.CODES[it]) }
+    Hint("Beschreibungen, Titel, Besetzung, Episoden-Namen und Trailer kommen in dieser Sprache von TMDB, die Menüs bleiben in der Sprache der App. Schon geladene Titel holt die App in der neuen Sprache, sobald du sie öffnest. Genres und Altersfreigaben bleiben davon unberührt.")
     SectionTitle("Uhrzeit")
     val fmts = listOf("Automatisch (Gerät)", "24 Stunden (14:30)", "12 Stunden (2:30 PM)")
     SelectRow("Zeitformat", fmts[General.timeFmt], fmts, General.timeFmt) { General.setTimeFmt(ctx, it) }

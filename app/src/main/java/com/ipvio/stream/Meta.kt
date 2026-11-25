@@ -219,7 +219,7 @@ object MetaRepo {
                 }
             }
             // Age rating only when the title was opened (detail page), see [extended]
-            val age = if (needAge) AgeRatingLogic.omdb(o.str("Rated"), AgeRatingLogic.country(Lang.tmdb())) else null
+            val age = if (needAge) AgeRatingLogic.omdb(o.str("Rated"), AgeRatingLogic.country(MetaLangLogic.tmdbTag(Lang.code()))) else null
             if (ir == null && rt == null && age == null) return m
             val nm = m.copy(imdbRating = ir ?: m.imdbRating, rtRating = rt ?: m.rtRating, imdbId = m.imdbId ?: o.str("imdbID"),
                 age = m.age ?: age, ageChecked = m.ageChecked || needAge)
@@ -364,7 +364,7 @@ object MetaRepo {
             o.dbl("vote_average")?.takeIf { it > 0 },
             o.str(if (tv) "first_air_date" else "release_date")?.take(4),
             genreIds = gids, lang = o.str("original_language"), votes = o.optInt("vote_count"),
-            countries = countries, uiLang = Lang.code()
+            countries = countries, uiLang = Lang.metaCode()
         )
     }
 
@@ -441,14 +441,15 @@ object MetaRepo {
     suspend fun extended(ctx: Context, i: Item, rematched: Boolean = false, needAge: Boolean = false): Meta? {
         if (!enabled()) return providerMeta(ctx, i, needAge)
         val b = basic(ctx, i) ?: return providerMeta(ctx, i, needAge)
-        if (MetaFreshLogic.fresh(b.extended, b.uiLang == Lang.code(), b.checked, b.ageChecked, needAge)) return b
+        if (MetaFreshLogic.fresh(b.extended, b.uiLang == Lang.metaCode(), b.checked, b.ageChecked, needAge)) return b
         val type = if (b.isTv) "tv" else "movie"
         // The age rating parts of the TMDB answer only when the title was opened
         val ratings = if (!needAge) "" else if (b.isTv) ",content_ratings" else ",release_dates"
-        val country = AgeRatingLogic.country(Lang.tmdb())
+        // Age rating of the app's country (T-061: the title language may differ, e.g. Russian texts but German FSK)
+        val country = AgeRatingLogic.country(MetaLangLogic.tmdbTag(Lang.code()))
         val body = getNow(
             "https://api.themoviedb.org/3/$type/${b.tmdbId}?api_key=${Config.TMDB_KEY}" +
-                "&language=${Lang.tmdb()}&append_to_response=external_ids,videos$ratings&include_video_language=${Lang.code()},en,null"
+                "&language=${Lang.tmdb()}&append_to_response=external_ids,videos$ratings&include_video_language=${Lang.metaCode()},en,null"
         ) ?: return b
         var m = b
         try {
@@ -484,14 +485,14 @@ object MetaRepo {
                 }
             }
             var ov = o.str("overview")?.takeIf { it.isNotBlank() }
-            if (ov == null && Lang.code() != "en") {
+            if (ov == null && Lang.metaCode() != "en") {
                 // TMDB has no text in this language: fetch the English text as a fallback (never keep the text of another language)
                 ov = getNow("https://api.themoviedb.org/3/$type/${b.tmdbId}?api_key=${Config.TMDB_KEY}&language=en-US")
                     ?.let { runCatching { JSONObject(it).str("overview") }.getOrNull() }?.takeIf { it.isNotBlank() }
             }
             val age = if (needAge) AgeRatingLogic.pick(ageByCountry(o, b.isTv), country) else b.age
-            m = b.copy(overview = ov ?: b.overview.takeIf { b.uiLang == Lang.code() }, genres = genres, runtime = runtime,
-                trailerKey = trailer, imdbId = imdb, uiLang = Lang.code(), checked = true, age = age, ageChecked = needAge || b.ageChecked,
+            m = b.copy(overview = ov ?: b.overview.takeIf { b.uiLang == Lang.metaCode() }, genres = genres, runtime = runtime,
+                trailerKey = trailer, imdbId = imdb, uiLang = Lang.metaCode(), checked = true, age = age, ageChecked = needAge || b.ageChecked,
                 lastAir = if (b.isTv) o.str("last_air_date") ?: b.lastAir else b.lastAir, lastAirTs = if (b.isTv) System.currentTimeMillis() else b.lastAirTs)
         } catch (e: Exception) {
         }
@@ -550,7 +551,7 @@ object MetaRepo {
      */
     suspend fun tvSeasons(ctx: Context, tmdbId: Int): List<EpisodeLogic.TmdbSeason> {
         if (tmdbId <= 0 || !enabled()) return emptyList()
-        val k = "$tmdbId|${Lang.code()}"
+        val k = "$tmdbId|${Lang.metaCode()}"
         tvSeasonMem[k]?.let { return it }
         val f = File(dir(ctx), "tvs_" + k.hashCode())
         fun parse(body: String): List<EpisodeLogic.TmdbSeason> {
@@ -577,7 +578,7 @@ object MetaRepo {
     }
 
     suspend fun season(tmdbId: Int, season: Int, imdbId: String?): List<EpMeta> {
-        val k = "$tmdbId|$season|${imdbId ?: ""}|${Lang.code()}"
+        val k = "$tmdbId|$season|${imdbId ?: ""}|${Lang.metaCode()}"
         seasons[k]?.let { return it }
         val body = getNow("https://api.themoviedb.org/3/tv/$tmdbId/season/$season?api_key=${Config.TMDB_KEY}&language=${Lang.tmdb()}")
             ?: return emptyList()
@@ -598,7 +599,7 @@ object MetaRepo {
             }
         } catch (e: Exception) {
         }
-        if (Lang.code() != "en" && out.any { it.overview.isNullOrBlank() }) {
+        if (Lang.metaCode() != "en" && out.any { it.overview.isNullOrBlank() }) {
             // fill in missing episode texts from English
             val eb = getNow("https://api.themoviedb.org/3/tv/$tmdbId/season/$season?api_key=${Config.TMDB_KEY}&language=en-US")
             val en = HashMap<Int, String>()

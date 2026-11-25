@@ -71,11 +71,11 @@ object Lang {
         else -> Locale.forLanguageTag(code())
     }
 
-    /** Language code for TMDB requests, e.g. "de-DE". */
-    fun tmdb(): String = when (code()) {
-        "en" -> "en-US"; "tr" -> "tr-TR"; "bs" -> "bs-BA"; "hr" -> "hr-HR"; "sr" -> "sr-RS"
-        "es" -> "es-ES"; "fr" -> "fr-FR"; "it" -> "it-IT"; "nl" -> "nl-NL"; "ar" -> "ar-SA"; "pl" -> "pl-PL"; else -> "de-DE"
-    }
+    /** Language of the TMDB title information: the own choice (T-061, e.g. Russian) or the app language. */
+    fun metaCode(): String = MetaLangLogic.effective(General.metaLang, code())
+
+    /** Language code for TMDB requests, e.g. "de-DE" (see [metaCode]). */
+    fun tmdb(): String = MetaLangLogic.tmdbTag(metaCode())
 
     fun tr(s: String): String {
         val i = index
