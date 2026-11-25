@@ -90,6 +90,9 @@ object MetaRepo {
      * every title at EVERY start to know genre/country/rating. With the index this is there in seconds, and with an
      * updated playlist only really new titles are queried at TMDB.
      */
+    /** True once [loadIndex] ran in this app process (T-071). */
+    fun isIndexLoaded(): Boolean = indexLoaded.get()
+
     suspend fun loadIndex(c: Context) = withContext(Dispatchers.IO) {
         if (!indexLoaded.compareAndSet(false, true)) return@withContext
         try {
