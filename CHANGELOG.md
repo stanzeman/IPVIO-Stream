@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Categories remember their sort: when you pick another sort in a category (for example "Popularity"), the next category of the same type (movies, series, Live TV) opens with it, until you change it or press "Reset". Lists with their own order (top lists, search) keep it. Not device tested yet
 
 ## 1.4.9
 - Series: "Download season" is shown on every series, also before the first play (before, it was only shown after a series had been started). Not device tested yet
