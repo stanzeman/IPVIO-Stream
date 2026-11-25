@@ -169,6 +169,11 @@ object Xmltv {
             if (loadedSig != sig && !force) {
                 val st = runCatching { if (snapFile.exists()) java.io.FileInputStream(snapFile).use { EpgSnapshot.read(it) } else null }.getOrNull()
                 if (st != null && EpgSnapshot.usable(st.savedAt, st.sig, sig, now)) show(st.data, st.savedAt, st.sig, "")
+                // Older than 36 hours (or other channels): its shows are over, but logos and matches are still right.
+                // Show them at once; the guide itself is read below (loadedSig 0 = not the current guide).
+                else if (st != null && data.progs.isEmpty() && data.icons.isEmpty() && EpgSnapshot.logosUsable(st.savedAt, now)) {
+                    data = EpgSnapshot.logosOnly(st.data); loadedAt = 0L; loadedSig = 0L; iconRev++
+                }
             }
             // 2. Shown guide fits and is younger than 12 hours: nothing to do
             if (!force && loadedSig == sig && !EpgSnapshot.refreshDue(loadedAt, now)) return@launch

@@ -32,3 +32,6 @@ New file `epg_snapshot.bin` in the app's files folder. No SharedPreferences key,
 
 ## Follow-up: guide logos in all channel views (23 Nov 2026)
 The Live TV channel rows still drew the playlist logo only and showed initials ("MO", "PR"). Now these also use `Xmltv.logo(item)`: channel rows (`LiveTab.kt`), player info bar, overlay and channel list (`PlayerLive.kt`), channel tiles on the home screen (`HomeParts.kt`), the large card fallback (`Components.kt`). For movies and series `Xmltv.logo` returns the playlist logo unchanged.
+
+## Follow-up: logos after a longer pause (25 Nov 2026)
+After two days without opening the app the guide was empty until it was read again (the stored shows reach only 36 hours ahead, so they were all over). Now a stored copy older than 36 hours (up to 30 days, also for another channel list) still gives its logos and name matches at once (`EpgSnapshot.logosUsable`, `logosOnly`); the shows come with the new read as before.

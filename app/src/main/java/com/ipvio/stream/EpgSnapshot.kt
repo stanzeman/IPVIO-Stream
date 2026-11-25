@@ -51,6 +51,15 @@ object EpgSnapshot {
         return h
     }
 
+    /** Logos and channel matches of an expired copy are still shown up to this age (they do not run out like the shows). */
+    const val LOGOS_MAX_AGE_MS = 30L * 24 * 3_600_000L
+
+    /** true = the logos and matches of a copy read at [savedAt] may be shown while a new guide is read (any channel list). */
+    fun logosUsable(savedAt: Long, now: Long): Boolean = (now - savedAt) in 0 until LOGOS_MAX_AGE_MS
+
+    /** The copy without its shows: logos and name matches only (shown after a longer pause until the new guide is read). */
+    fun logosOnly(d: EpgData): EpgData = EpgData(emptyMap(), d.byTitle, d.icons, d.iconByTitle)
+
     /** true = a copy read at [savedAt] for [savedSig] may be shown now. */
     fun usable(savedAt: Long, savedSig: Long, sig: Long, now: Long): Boolean = savedSig == sig && (now - savedAt) in 0 until MAX_AGE_MS
 
