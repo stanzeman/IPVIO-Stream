@@ -139,25 +139,38 @@ object EpisodeLogic {
  * Continue watching: when an episode/movie counts as watched, and the progress per episode in compact text form.
  */
 object ResumeLogic {
-    /** Watched: from 92 % or in the last 90 seconds (credits), provided at least half has played. */
+    /**
+     * Watched (T-072): from 90 % or in the last 3 minutes (long credits), provided at least half has played.
+     * Before T-072: 92 % or the last 90 seconds.
+     */
     fun finished(posMs: Long, durMs: Long): Boolean =
-        durMs > 0 && (posMs >= durMs * 0.92 || (durMs - posMs <= 90_000 && posMs >= durMs / 2))
+        durMs > 0 && (posMs >= durMs * 0.90 || (durMs - posMs <= END_MS && posMs >= durMs / 2))
 
-    /** Only from 30 seconds on is a resume point worthwhile. */
-    const val MIN_POS = 30_000L
+    /** Rest time that counts as "credits" (T-072: 3 minutes, before 90 seconds). */
+    const val END_MS = 180_000L
+
+    /** A resume point is only worthwhile from 5 minutes on (T-072, before 30 seconds): a short look does not count. */
+    const val MIN_POS = 300_000L
 
     /**
-     * Should the state be remembered? From 30 seconds or when watched to the end always. Shorter only if there is already an entry for
-     * the same series and it concerns ANOTHER episode: whoever moves on from episode 40 to 41 and 42 should land at
-     * 42 when coming back, not at 40. A short peek into the same episode changes nothing.
+     * Should the state be remembered? From [MIN_POS] or when watched to the end. The position is absolute, so going on
+     * with a title that is already past [MIN_POS] is always remembered. T-072: a short look into ANOTHER episode of the
+     * same series no longer moves the entry (before, any episode change was remembered at once).
+     * [hasOld] and the season/episode parameters are kept for the callers; they no longer change the result.
      */
-    fun shouldSave(hasOld: Boolean, oldSeason: Int, oldEp: Int, season: Int, ep: Int, posMs: Long, finished: Boolean): Boolean = when {
-        finished -> true
-        posMs > MIN_POS -> true
-        !hasOld -> false
-        (season > 0 || ep > 0) && (oldSeason != season || oldEp != ep) -> true
-        else -> false
-    }
+    @Suppress("UNUSED_PARAMETER")
+    fun shouldSave(hasOld: Boolean, oldSeason: Int, oldEp: Int, season: Int, ep: Int, posMs: Long, finished: Boolean): Boolean =
+        finished || posMs > MIN_POS
+
+    /** Choices for "remove after" in the settings, in days (0 = never). */
+    val EXPIRE_DAYS = listOf(0, 3, 7, 14, 30)
+
+    /**
+     * T-072: has an entry not been continued for [days] days? 0 = never expires. [ts] is the time of the last save.
+     * A time stamp in the future (clock changed) does not expire.
+     */
+    fun expired(ts: Long, nowMs: Long, days: Int): Boolean =
+        days > 0 && ts > 0 && nowMs - ts > days * 86_400_000L
 
     /** Progress of an episode in seconds. */
     data class EpPos(val pos: Int, val dur: Int) {

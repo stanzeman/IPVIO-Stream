@@ -544,7 +544,7 @@ object WatchStore {
 
     /**
      * Remembers the state. Watched to the end: for series [next] (the next episode) is offered, otherwise the entry disappears.
-     * Under 30 seconds nothing changes – a short peek does not delete an old resume point.
+     * Under 5 minutes ([ResumeLogic.MIN_POS]) nothing changes – a short look does not move or delete an old resume point.
      */
     fun save(c: Context, e: Entry, next: Entry? = null) {
         if (PrivateCats.isPrivateId(e.itemId)) return   // private categories: no resume point, no log line (T-028)
@@ -561,6 +561,22 @@ object WatchStore {
         if (!fin) entries.add(0, e)
         else if (next != null) entries.add(0, next.copy(pos = 0L, dur = 0L, next = true))
         while (entries.size > 30) entries.removeAt(entries.lastIndex)
+        persist(c)
+    }
+
+    /**
+     * T-072: removes entries that were not continued for the set number of days ([General.resumeMovieDays] for movies,
+     * [General.resumeSeriesDays] for series). [isSeries] tells the kind of a title from the loaded playlist (null = unknown:
+     * the entry stays, e.g. while the playlist is not loaded yet).
+     */
+    fun pruneExpired(c: Context, now: Long, isSeries: (String) -> Boolean?) {
+        val gone = entries.filter { e ->
+            val series = isSeries(e.itemId) ?: return@filter false
+            ResumeLogic.expired(e.ts, now, if (series) General.resumeSeriesDays else General.resumeMovieDays)
+        }
+        if (gone.isEmpty()) return
+        for (e in gone) ResumeLog.add(c, "abgelaufen: " + e.title.take(40) + " #" + e.itemId.takeLast(4))
+        entries.removeAll(gone.toSet())
         persist(c)
     }
 

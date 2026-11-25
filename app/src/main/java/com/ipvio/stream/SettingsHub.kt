@@ -591,6 +591,13 @@ private fun StoragePage(ctx: Context) {
         ConfirmPill("Weiterschauen löschen") { General.clearResume(ctx) }
     }
     Hint("Meine Liste und Favoriten bleiben immer erhalten.")
+    // T-072: titles not continued for a while leave "Continue watching" by themselves
+    val dayOpts = ResumeLogic.EXPIRE_DAYS.map { if (it == 0) "Nie" else "Nach $it Tagen" }
+    val mDays = ResumeLogic.EXPIRE_DAYS.indexOf(General.resumeMovieDays).coerceAtLeast(0)
+    val sDays = ResumeLogic.EXPIRE_DAYS.indexOf(General.resumeSeriesDays).coerceAtLeast(0)
+    SelectRow("Filme aus Weiterschauen entfernen", dayOpts[mDays], dayOpts, mDays) { General.setResumeMovieDays(ctx, ResumeLogic.EXPIRE_DAYS[it]) }
+    SelectRow("Serien aus Weiterschauen entfernen", dayOpts[sDays], dayOpts, sDays) { General.setResumeSeriesDays(ctx, ResumeLogic.EXPIRE_DAYS[it]) }
+    Hint("Titel, die so lange nicht weitergeschaut wurden, verschwinden aus „Weiterschauen“. Ein Titel erscheint dort ab 5 Minuten und gilt ab 90 % oder 3 Minuten vor Schluss als fertig.")
     }
     if (tab == 3) DownloadsSettings(ctx)
     if (tab == 2) {
