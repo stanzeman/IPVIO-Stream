@@ -1,6 +1,6 @@
 package com.ipvio.stream
 
-// T-063 to T-066: "Top 10 today" per movies/series, "Popular & new", "New titles", "Russian & Kazakh", series data.
+// T-063 to T-066 (T-069: home rows "Russian & Kazakh"): "Top 10 today" per movies/series, "Popular & new", "New titles", "Russian & Kazakh", series data.
 // Format: key¦English¦Turkish¦Bosnian¦Croatian¦Serbian¦Spanish¦French¦Italian. Dutch, Arabic and Polish: own columns below.
 // Drafted, not reviewed by a native speaker.
 val DictT064 = """
@@ -22,6 +22,8 @@ Beliebte, gut bewertete Filme der letzten Jahre¦Popular, well-rated movies of r
 Beliebte, gut bewertete Serien der letzten Jahre¦Popular, well-rated series of recent years¦Son yılların popüler, yüksek puanlı dizileri¦Popularne, dobro ocijenjene serije posljednjih godina¦Popularne, dobro ocijenjene serije posljednjih godina¦Popularne, dobro ocenjene serije poslednjih godina¦Series populares y bien valoradas de los últimos años¦Séries populaires et bien notées de ces dernières années¦Serie popolari e ben valutate degli ultimi anni
 Oben findest du alle Filme, Neuheiten und Kategorien.¦At the top you'll find all movies, new additions and categories.¦Üstte tüm filmleri, yenilikleri ve kategorileri bulursun.¦Gore ćeš naći sve filmove, novitete i kategorije.¦Gore ćeš naći sve filmove, novitete i kategorije.¦Gore ćeš naći sve filmove, novitete i kategorije.¦Arriba encontrarás todas las películas, novedades y categorías.¦En haut, tu trouveras tous les films, les nouveautés et les catégories.¦In alto trovi tutti i film, le novità e le categorie.
 Oben findest du alle Serien, Neuheiten und Kategorien.¦At the top you'll find all series, new additions and categories.¦Üstte tüm dizileri, yenilikleri ve kategorileri bulursun.¦Gore ćeš naći sve serije, novitete i kategorije.¦Gore ćeš naći sve serije, novitete i kategorije.¦Gore ćeš naći sve serije, novitete i kategorije.¦Arriba encontrarás todas las series, novedades y categorías.¦En haut, tu trouveras toutes les séries, les nouveautés et les catégories.¦In alto trovi tutte le serie, le novità e le categorie.
+Filme aus Russland oder Kasachstan oder auf Russisch oder Kasachisch, neueste zuerst¦Movies from Russia or Kazakhstan or in Russian or Kazakh, newest first¦Rusya veya Kazakistan yapımı ya da Rusça veya Kazakça filmler, en yeniler önce¦Filmovi iz Rusije ili Kazahstana ili na ruskom ili kazaškom, najnoviji prvi¦Filmovi iz Rusije ili Kazahstana ili na ruskom ili kazaškom, najnoviji prvi¦Filmovi iz Rusije ili Kazahstana ili na ruskom ili kazaškom, najnoviji prvi¦Películas de Rusia o Kazajistán o en ruso o kazajo, las más nuevas primero¦Films de Russie ou du Kazakhstan ou en russe ou en kazakh, les plus récents d'abord¦Film dalla Russia o dal Kazakistan o in russo o kazako, prima i più recenti
+Serien aus Russland oder Kasachstan oder auf Russisch oder Kasachisch, neueste zuerst¦Series from Russia or Kazakhstan or in Russian or Kazakh, newest first¦Rusya veya Kazakistan yapımı ya da Rusça veya Kazakça diziler, en yeniler önce¦Serije iz Rusije ili Kazahstana ili na ruskom ili kazaškom, najnovije prve¦Serije iz Rusije ili Kazahstana ili na ruskom ili kazaškom, najnovije prve¦Serije iz Rusije ili Kazahstana ili na ruskom ili kazaškom, najnovije prve¦Series de Rusia o Kazajistán o en ruso o kazajo, las más nuevas primero¦Séries de Russie ou du Kazakhstan ou en russe ou en kazakh, les plus récentes d'abord¦Serie dalla Russia o dal Kazakistan o in russo o kazako, prima le più recenti
 Serien-Daten werden ergänzt¦Completing series data¦Dizi verileri tamamlanıyor¦Dopunjavanje podataka o serijama¦Dopunjavanje podataka o serijama¦Dopunjavanje podataka o serijama¦Completando datos de series¦Complément des données des séries¦Completamento dati delle serie
 """
 
@@ -45,6 +47,8 @@ Beliebte, gut bewertete Serien der letzten Jahre¦Populaire, goed beoordeelde se
 Oben findest du alle Filme, Neuheiten und Kategorien.¦Bovenaan vind je alle films, nieuwtjes en categorieën.
 Oben findest du alle Serien, Neuheiten und Kategorien.¦Bovenaan vind je alle series, nieuwtjes en categorieën.
 Serien-Daten werden ergänzt¦Seriegegevens worden aangevuld
+Filme aus Russland oder Kasachstan oder auf Russisch oder Kasachisch, neueste zuerst¦Films uit Rusland of Kazachstan of in het Russisch of Kazachs, nieuwste eerst
+Serien aus Russland oder Kasachstan oder auf Russisch oder Kasachisch, neueste zuerst¦Series uit Rusland of Kazachstan of in het Russisch of Kazachs, nieuwste eerst
 """
 
 val DictT064Ar = """
@@ -67,6 +71,8 @@ Beliebte, gut bewertete Serien der letzten Jahre¦مسلسلات رائجة وع
 Oben findest du alle Filme, Neuheiten und Kategorien.¦ستجد في الأعلى جميع الأفلام والجديد والفئات.
 Oben findest du alle Serien, Neuheiten und Kategorien.¦ستجد في الأعلى جميع المسلسلات والجديد والفئات.
 Serien-Daten werden ergänzt¦جارٍ استكمال بيانات المسلسلات
+Filme aus Russland oder Kasachstan oder auf Russisch oder Kasachisch, neueste zuerst¦أفلام من روسيا أو كازاخستان أو باللغة الروسية أو الكازاخية، الأحدث أولاً
+Serien aus Russland oder Kasachstan oder auf Russisch oder Kasachisch, neueste zuerst¦مسلسلات من روسيا أو كازاخستان أو باللغة الروسية أو الكازاخية، الأحدث أولاً
 """
 
 val DictT064Pl = """
@@ -89,4 +95,6 @@ Beliebte, gut bewertete Serien der letzten Jahre¦Popularne, dobrze oceniane ser
 Oben findest du alle Filme, Neuheiten und Kategorien.¦Na górze znajdziesz wszystkie filmy, nowości i kategorie.
 Oben findest du alle Serien, Neuheiten und Kategorien.¦Na górze znajdziesz wszystkie seriale, nowości i kategorie.
 Serien-Daten werden ergänzt¦Uzupełnianie danych seriali
+Filme aus Russland oder Kasachstan oder auf Russisch oder Kasachisch, neueste zuerst¦Filmy z Rosji lub Kazachstanu albo po rosyjsku lub kazachsku, najnowsze najpierw
+Serien aus Russland oder Kasachstan oder auf Russisch oder Kasachisch, neueste zuerst¦Seriale z Rosji lub Kazachstanu albo po rosyjsku lub kazachsku, najnowsze najpierw
 """

@@ -18,6 +18,8 @@ class DictT064Test {
         assertEquals("Popular & new · Series", tr("Beliebt & neu · Serien", "en"))
         assertEquals("Russian & Kazakh", tr("Russisch & Kasachisch", "en"))
         assertEquals("Completing series data", tr("Serien-Daten werden ergänzt", "en"))
+        assertEquals("Movies from Russia or Kazakhstan or in Russian or Kazakh, newest first",
+            tr("Filme aus Russland oder Kasachstan oder auf Russisch oder Kasachisch, neueste zuerst", "en"))
     }
 
     @Test fun every_row_has_all_columns() {

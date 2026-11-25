@@ -55,8 +55,12 @@ open class BlockLayout(private val prefName: String, val blocks: List<LayoutBloc
 
     fun init(c: Context) {
         val p = prefs(c)
-        order = normalize((p.getString("order", "") ?: "").split(",").filter { it.isNotBlank() })
-        hidden = if (p.contains("hidden")) (p.getString("hidden", "") ?: "").split(",").filter { it.isNotBlank() }.toSet() else defaultHidden
+        val saved = (p.getString("order", "") ?: "").split(",").filter { it.isNotBlank() }
+        order = normalize(saved)
+        // A block that is new since the layout was saved starts hidden when it is hidden by default (T-069)
+        hidden = BlockLayoutLogic.hiddenOnLoad(
+            saved, if (p.contains("hidden")) (p.getString("hidden", "") ?: "").split(",").filter { it.isNotBlank() }.toSet() else null, defaultHidden
+        )
         // The fixed block (the big slideshow) always stays first, but it can be hidden like any other block
     }
 
@@ -93,12 +97,14 @@ private val HOME_BLOCKS = listOf(
     LayoutBlock("topm", "Beliebt & neu · Filme", "Beliebte, gut bewertete Filme der letzten Jahre"),
     LayoutBlock("news", "Neue Serien", "Zuletzt hinzugefügte Serien"),
     LayoutBlock("tops", "Beliebt & neu · Serien", "Beliebte, gut bewertete Serien der letzten Jahre"),
+    LayoutBlock("rum", "Russisch & Kasachisch · Filme", "Filme aus Russland oder Kasachstan oder auf Russisch oder Kasachisch, neueste zuerst"),
+    LayoutBlock("rus", "Russisch & Kasachisch · Serien", "Serien aus Russland oder Kasachstan oder auf Russisch oder Kasachisch, neueste zuerst"),
     LayoutBlock("sg", "Serien nach Genre", "Reihen für die häufigsten Serien-Genres"),
     LayoutBlock("mg", "Filme nach Genre", "Reihen für die häufigsten Film-Genres")
 )
 
 /** Home screen: new blocks are hidden by default so it looks as before until someone switches them on. */
-object HomeLayout : BlockLayout("ipvio_homelayout", HOME_BLOCKS, setOf("favch", "hist"))
+object HomeLayout : BlockLayout("ipvio_homelayout", HOME_BLOCKS, setOf("favch", "hist", "rum", "rus"))
 
 private val BOOMER_BLOCKS = listOf(
     LayoutBlock("clock", "Große Uhr", "Uhrzeit und Datum, gut lesbar"),
