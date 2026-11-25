@@ -12,8 +12,14 @@ The extra weight on Russia and Kazakhstan is optional: on only with Russian titl
 - `HomeScreen.kt`: boost per title from the board's focus; the trend list is asked again when the language of the title info changes.
 - The "Russian & Kazakh" row is unchanged.
 
+## Follow-up: original language instead of country
+"Rise of the Conqueror" (Uzbek-American, English) came first only because of its production countries. Now:
+- `discover` lists by `with_original_language`: `ru` (2 pages, 1.4), `kk` (1 page, 1.4), and `uk`, `be`, `uz`, `ka`, `hy`, `az`, `ky` one by one (1 page, 1.15). No combined "|" query, because it is not certain that TMDB accepts it for this parameter. About 26 requests per day with the focus (with 250 ms pause, 429 stops).
+- Playlist factor: 1.2 Russian/Kazakh original language, 1.1 another former Soviet language, 1.05 only a production country from there, else 1.0.
+- Focus id is now "ru2", so a board saved today with the country lists is loaded again at once.
+
 ## Tests
-`TrendLogicTest`: 4 new tests (focus, boost order, no boost without focus, freshness per focus).
+`TrendLogicTest`: 5 new tests (focus, boost by original language, region lists, no boost without focus, freshness per focus).
 
 ## Manual test steps
 1. Language of title info = Russian: "Top 10 today" contains Russian/Kazakh titles near the top.
