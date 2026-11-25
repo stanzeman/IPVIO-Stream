@@ -90,6 +90,8 @@ object Xmltv {
 
     fun has(id: String?): Boolean = id != null && data.progs.containsKey(id.lowercase())
     fun has(item: Item): Boolean = has(idFor(item))
+    /** Name used by upstream 1.5.0 (search, phone remote); same as [has] for an item. */
+    fun hasItem(item: Item): Boolean = has(item)
     fun forChannel(id: String?): List<EpgEntry> = if (id == null) emptyList() else data.progs[id.lowercase()] ?: emptyList()
     fun forItem(item: Item): List<EpgEntry> = forChannel(idFor(item))
 
@@ -290,8 +292,14 @@ object Xmltv {
                     var inner = p.next()
                     while (!(inner == XmlPullParser.END_TAG && p.name == "channel") && inner != XmlPullParser.END_DOCUMENT) {
                         if (inner == XmlPullParser.START_TAG && p.name == "display-name" && cid != null && nameKeys.isNotEmpty()) {
-                            val k = EpgNameLogic.key(p.nextText())
-                            if (k in nameKeys) { byName.getOrPut(k) { HashSet() }.add(cid); extra.add(cid) }
+                            // Plain text of the tag (upstream 1.5.0: nextText() throws on a tag with child elements and
+                            // would lose the whole guide of that source)
+                            inner = p.next()
+                            if (inner == XmlPullParser.TEXT) {
+                                val k = EpgNameLogic.key(p.text ?: "")
+                                if (k.isNotEmpty() && k in nameKeys) { byName.getOrPut(k) { HashSet() }.add(cid); extra.add(cid) }
+                            }
+                            continue
                         } else if (inner == XmlPullParser.START_TAG && p.name == "icon" && ic == null) {
                             ic = EpgCacheLogic.iconUrl(p.getAttributeValue(null, "src"))
                         }

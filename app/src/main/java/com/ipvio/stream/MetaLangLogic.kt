@@ -21,7 +21,7 @@ object MetaLangLogic {
     fun tmdbTag(code: String): String = when (code) {
         "en" -> "en-US"; "tr" -> "tr-TR"; "bs" -> "bs-BA"; "hr" -> "hr-HR"; "sr" -> "sr-RS"
         "es" -> "es-ES"; "fr" -> "fr-FR"; "it" -> "it-IT"; "nl" -> "nl-NL"; "ar" -> "ar-SA"; "pl" -> "pl-PL"
-        "ru" -> "ru-RU"; "uk" -> "uk-UA"
+        "ru" -> "ru-RU"; "uk" -> "uk-UA"; "zh" -> "zh-CN"; "pt" -> "pt-BR"
         else -> "de-DE"
     }
 

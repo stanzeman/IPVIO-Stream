@@ -62,17 +62,17 @@ internal fun PlaylistEditDialog(ctx: Context, index: Int, scope: CoroutineScope,
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         // Focus into the window at once: without it the remote could not reach the fields (OK and D-pad did nothing)
         LaunchedEffect(Unit) { delay(50); runCatching { first.requestFocus() } }
+        // Never taller than the screen: the middle part scrolls, title and the "Apply" / "Cancel" row always stay visible
+        // (on a phone in landscape and on a 1080p TV a fixed 420 dp middle part pushed the buttons off the screen)
+        val maxH = (androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp - 24).coerceAtLeast(240).dp
         Column(
-            // The whole window fits the screen; only the middle part scrolls, so "Apply" and "Cancel" stay visible (T-058)
-            Modifier.width(760.dp).heightIn(max = (LocalConfiguration.current.screenHeightDp - 32).coerceAtLeast(320).dp)
-                .clip(RoundedCornerShape(DS.RadiusL)).background(Tok.GlassStrong).padding(24.dp),
+            Modifier.width(760.dp).heightIn(max = maxH).clip(RoundedCornerShape(DS.RadiusL)).background(Tok.GlassStrong).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(Lang.tr("Playlist bearbeiten"), color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
             Text(PlaylistStore.hostOf(url), color = Muted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             // Scroll without the app-wide soft scrolling: with it the list trailed slowly behind the focus (same fix as the add screen)
             CompositionLocalProvider(LocalBringIntoViewSpec provides InstantSpec) {
-            // Fork (T-058): the middle part takes the free height (the window fits the screen), so Apply and Cancel stay visible on a 1080p TV
             Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Field(name, { name = it }, "Name der Playlist", inner = Modifier.focusRequester(first))
                 SelectRow("Inhalt der Playlist", PlaylistMode.labels[mode], PlaylistMode.labels, mode, active = mode != PlaylistMode.ALL) { mode = it }
