@@ -264,6 +264,7 @@ object General {
     fun clearHistory(c: Context) {
         History.ids.clear()
         Profiles.sp(c, "ipvio_hist").edit().clear().apply()
+        LiveWatch.clear(c)   // most watched channels (T-068) go with the history
     }
 
     fun clearResume(c: Context) {

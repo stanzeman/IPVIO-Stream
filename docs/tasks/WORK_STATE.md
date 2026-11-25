@@ -6,6 +6,8 @@ The former log is kept unchanged in `docs/tasks/WORK_STATE-history.md`. Do not a
 
 ## Current task
 
+Last update: 2026-11-25. T-068 most watched channels (branch `feat/T-068-top-channels` from `my-build`): see `docs/tasks/T-068-top-channels.md`. JVM tests 13/13 for the new logic. Not built, not device tested. Next: maintainer builds and runs the device test steps; decides whether the watch times go into the backup.
+
 Last update: 2026-11-25. Branch `claude/modest-johnson-415uuv` (from `main` f6270c3). Maintainer's priorities: 1. users see fewer channels, movies and series than the provider sends, and EPG matching; 2. speed (start, screen changes, playlist switch without loading screen).
 
 - T-058 (`docs/tasks/T-058-missing-content-and-epg-matching.md`): same-name series no longer merged (first keeps its ID), partial Xtream `get.php` lists loaded through the API, load report in Settings > Diagnostics > Log, XMLTV matching by normalized ID and channel name.

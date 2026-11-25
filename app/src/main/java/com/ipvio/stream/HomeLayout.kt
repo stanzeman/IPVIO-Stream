@@ -84,6 +84,7 @@ private val HOME_BLOCKS = listOf(
     LayoutBlock("tiles", "Kacheln", "Live TV, Filme, Serien, Favoriten und Meine Liste"),
     LayoutBlock("resume", "Weiterschauen", "Dort weitermachen, wo du aufgehört hast"),
     LayoutBlock("favch", "Meine Sender", "Deine Live-Favoriten als Reihe"),
+    LayoutBlock("topch", "Meistgesehene Sender", "Die Sender, die du am längsten schaust"),
     LayoutBlock("chnow", "Live TV gerade", "Was jetzt auf deinen Sendern läuft"),
     LayoutBlock("trend", "Top 10 heute", "Die beliebtesten Filme und Serien des Tages"),
     LayoutBlock("because", "Weil du etwas geschaut hast", "Ähnliche Titel zu deinem letzten Film oder deiner letzten Serie"),

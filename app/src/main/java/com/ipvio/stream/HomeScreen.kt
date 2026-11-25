@@ -298,6 +298,8 @@ fun HomeScreen(
     val histHome = remember(hist, noAdult) { homeSafe(hist, noAdult) }
     val watchHome = remember(watchList, noAdult) { homeSafe(watchList, noAdult) }
     val favLiveHome = remember(favLive, noAdult) { homeSafe(favLive, noAdult) }
+    // Most watched channels (T-068), without adult channels if wanted
+    val topLiveHome = remember(byId, LiveWatch.version, noAdult) { homeSafe(LiveWatch.top(ctx, { byId[it] }, { it.kind == Kind.LIVE }, 20), noAdult).take(10) }
     val rowMovies = data.rowMovies
     val rowSeries = data.rowSeries
     // Row lists that were built anew inside the rows on every recomposition
@@ -709,6 +711,7 @@ fun HomeScreen(
                                     // Continue watching directly under the tiles: whoever watches a lot wants to continue in few clicks
                                     "resume" -> { if (resumeList.isNotEmpty()) item(key = "resume") { ResumeRow(resumeList, cardW, onResume) } }
                                     "favch" -> { if (favLiveHome.isNotEmpty()) item(key = "favch") { ItemsRow("Meine Sender", favLiveHome, cardW, onOpen) { onTab(3) } } }
+                                    "topch" -> { if (topLiveHome.isNotEmpty()) item(key = "topch") { ItemsRow("Meistgesehene Sender", topLiveHome, cardW, onOpen) { onTab(3) } } }
                                     "chnow" -> { if (nowChannels.isNotEmpty()) item(key = "chnow") { ChannelNowRow("Live TV", nowChannels, onOpen) { onTab(3) } } }
                                     // Top 10 always as whole covers (independent of the picture setting)
                                     "trend" -> {

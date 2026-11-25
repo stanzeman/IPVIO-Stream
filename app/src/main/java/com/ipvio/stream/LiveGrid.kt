@@ -18,7 +18,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed as rowItemsIndexed
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
@@ -121,6 +124,9 @@ internal fun LiveGrid(liveAll: List<Item>, groupsAll: Map<String, List<Item>>, f
         )
     }
 
+    // Most watched channels (T-068): row above the category tiles, only when there is watch time
+    val topCh = remember(live, LiveWatch.version) { LiveWatch.top(ctx, { byId.value[it] }) }
+
     // Channels of the open category (quality variants of one channel as one card, like the list view)
     val k = cat
     val raw = if (k == null) emptyList() else channelsOf(k)
@@ -204,13 +210,21 @@ internal fun LiveGrid(liveAll: List<Item>, groupsAll: Map<String, List<Item>>, f
                     horizontalArrangement = Arrangement.spacedBy(dpx(16)), verticalArrangement = Arrangement.spacedBy(dpx(16)),
                     contentPadding = PaddingValues(bottom = dpx(48))
                 ) {
+                    if (topCh.isNotEmpty()) item(key = "top", span = { GridItemSpan(maxLineSpan) }) {
+                        TopChannelsRow(topCh, restoreId, restoreReq) { ch ->
+                            // Back from the player: the tiles again (not a category), focus on this card
+                            ZapContext.list = topCh; ZapContext.key = null
+                            LiveMemory.setSel(ctx, "HOME")
+                            onOpen(ch)
+                        }
+                    }
                     itemsIndexed(tiles, key = { _, t -> t.key }) { i, t ->
                         val back = t.key == lastCat
                         CategoryTile(
                             labelOf(t.key),
                             t.count,
                             remember(t.key, t.count, Xmltv.channelCount) { LiveGridLogic.preview(channelsOf(t.key), { Xmltv.logo(it) }) },
-                            (if (i == 0) Modifier.focusRequester(ContentFocus.req) else Modifier).then(if (back) Modifier.focusRequester(firstTile) else Modifier)
+                            (if (i == 0 && topCh.isEmpty()) Modifier.focusRequester(ContentFocus.req) else Modifier).then(if (back) Modifier.focusRequester(firstTile) else Modifier)
                         ) { searching = false; cat = t.key }
                     }
                 }
@@ -243,6 +257,29 @@ internal fun LiveGrid(liveAll: List<Item>, groupsAll: Map<String, List<Item>>, f
                 }
             }
         }
+    }
+}
+
+/**
+ * Row "Most watched channels" above the category tiles (T-068): up to 10 channel cards, most watched first.
+ * The first card takes the content focus; after the player the card of the played channel gets it back.
+ */
+@Composable
+private fun TopChannelsRow(list: List<Item>, restoreId: String?, restoreReq: FocusRequester, onClick: (Item) -> Unit) {
+    val restoreIdx = LiveGridLogic.indexOf(list, restoreId)
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(dpx(10))) {
+        Text("Meistgesehene Sender", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(dpx(16)), contentPadding = PaddingValues(vertical = dpx(6))) {
+            rowItemsIndexed(list, key = { _, ch -> ch.id }) { i, ch ->
+                val m = Modifier.width(dpx(300))
+                    .then(if (i == 0) Modifier.focusRequester(ContentFocus.req) else Modifier)
+                    .then(if (i == restoreIdx) Modifier.focusRequester(restoreReq) else Modifier)
+                ChannelCard(ch, m, null, null, emptyList(), {}) { onClick(ch) }
+            }
+        }
+    }
+    if (restoreIdx >= 0) LaunchedEffect(Unit) {
+        repeat(15) { kotlinx.coroutines.delay(60); if (runCatching { restoreReq.requestFocus() }.getOrDefault(false)) { LastFocus.pending = null; return@LaunchedEffect } }
     }
 }
 
