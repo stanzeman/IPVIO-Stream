@@ -13,6 +13,7 @@
 - Search: the app's own search keyboard has a Russian layer. "АБВ" switches the letters to Cyrillic (ЙЦУКЕН, all 33 letters), "ABC" switches back; the choice stays while the app runs. Not device tested yet
 - Fork only: Settings > Playlists > Edit: the window fits the TV screen and only its middle part scrolls, so "Apply" and "Cancel" stay visible (with the "Shown additionally" row the window was taller than a 1080p screen). Switching "Shown additionally" on is upstream behaviour again since 23 Nov 2026. Not device tested yet
 - Settings > Language & region: new "Language of title information". Descriptions, titles, cast, episode names and trailers from TMDB can come in another language than the menus, for example Russian (also Ukrainian; all app languages). Titles loaded before are fetched again in the new language when opened. Age ratings stay with the country of the app language. Not device tested yet
+- Categories remember their sort: when you pick another sort in a category (for example "Popularity"), the next category of the same type (movies, series, Live TV) opens with it, until you change it or press "Reset". Lists with their own order (top lists, search) keep it. Not device tested yet
 
 ## 1.4.9
 - Series: "Download season" is shown on every series, also before the first play (before, it was only shown after a series had been started). Not device tested yet

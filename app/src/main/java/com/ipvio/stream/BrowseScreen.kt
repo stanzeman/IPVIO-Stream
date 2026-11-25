@@ -204,7 +204,14 @@ var restoreIdx by remember { mutableIntStateOf(state.focused) }
 
     val browseKind = remember(req) { req.items.firstOrNull()?.kind }
     // Restore the saved language once, before the first list is computed
-    remember(state) { if (!state.langInit) { state.langInit = true; state.lang = BrowseLangPrefs.get(ctx, browseKind) }; 0 }
+    remember(state) {
+        if (!state.langInit) {
+            state.langInit = true; state.lang = BrowseLangPrefs.get(ctx, browseKind)
+            // T-062: a category opens with the sort last picked in a category of this type
+            state.sort = BrowseSortLogic.initial(BrowseSortPrefs.get(ctx, browseKind), AppSettings.browseSort, req.sort, SORTS.size)
+        }
+        0
+    }
     val langOptions = remember(req) { BrowseLangPrefs.available(req.items) }
     val key = BrowseKey(state.sort, state.minRi, state.year, state.genre, state.country, ver, state.source, state.lang)
     val listOrNull by produceState(state.lastList?.takeIf { state.lastKey == key }, req, key) {
@@ -274,7 +281,7 @@ var restoreIdx by remember { mutableIntStateOf(state.focused) }
                 ) {
                     item {
                         DropdownPill("Sortierung", SORTS[state.sort], SORTS, state.sort,
-                            active = state.sort != req.sort, modifier = Modifier.focusRequester(filterFocus), icon = FIcon.Sort) { state.sort = it }
+                            active = state.sort != req.sort, modifier = Modifier.focusRequester(filterFocus), icon = FIcon.Sort) { state.sort = it; if (BrowseSortLogic.remembers(req.sort)) BrowseSortPrefs.set(ctx, browseKind, it) }
                     }
                     item {
                         DropdownPill("Rating", RATING_LABELS[state.minRi], RATING_LABELS, state.minRi, active = state.minRi != 0, icon = FIcon.Rating) { state.minRi = it }
@@ -313,7 +320,7 @@ var restoreIdx by remember { mutableIntStateOf(state.focused) }
                     }
                     item {
                         FilterPill("Zurücksetzen", false, icon = FIcon.Reset) {
-                            state.minRi = 0; state.year = "Alle"; state.genre = null; state.country = null; state.lang = null; BrowseLangPrefs.set(ctx, browseKind, null); state.source = -1; state.sort = defaultSort(req.sort)
+                            state.minRi = 0; state.year = "Alle"; state.genre = null; state.country = null; state.lang = null; BrowseLangPrefs.set(ctx, browseKind, null); state.source = -1; if (BrowseSortLogic.remembers(req.sort)) BrowseSortPrefs.set(ctx, browseKind, -1); state.sort = defaultSort(req.sort)
                         }
                     }
                     // View and grid: rarely needed, hence at the very end
@@ -340,7 +347,7 @@ var restoreIdx by remember { mutableIntStateOf(state.focused) }
                 if (ready && list.isEmpty()) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     EmptyState(AIcon.Sliders, "Keine Treffer", "Mit diesen Filtern gibt es hier keine Titel.", action = "Filter zurücksetzen") {
                         runCatching { filterFocus.requestFocus() }
-                        state.minRi = 0; state.year = "Alle"; state.genre = null; state.country = null; state.lang = null; BrowseLangPrefs.set(ctx, browseKind, null); state.source = -1; state.sort = defaultSort(req.sort)
+                        state.minRi = 0; state.year = "Alle"; state.genre = null; state.country = null; state.lang = null; BrowseLangPrefs.set(ctx, browseKind, null); state.source = -1; if (BrowseSortLogic.remembers(req.sort)) BrowseSortPrefs.set(ctx, browseKind, -1); state.sort = defaultSort(req.sort)
                     }
                 }
                 if (!ready) {
