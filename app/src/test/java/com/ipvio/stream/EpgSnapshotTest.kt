@@ -64,4 +64,20 @@ class EpgSnapshotTest {
         assertFalse(a == EpgSnapshot.sig(listOf("http://a"), setOf("x", "y"), setOf("нтв"), mapOf("x" to 3)))
         assertFalse(a == EpgSnapshot.sig(listOf("http://a", "http://b"), setOf("x", "y"), setOf("нтв"), mapOf("x" to 4)))
     }
+
+    @Test fun logosOfAnExpiredCopyAreShownUpTo30Days() {
+        val day = 24 * hour
+        assertTrue(EpgSnapshot.logosUsable(0L, 2 * day))
+        assertTrue(EpgSnapshot.logosUsable(0L, 29 * day))
+        assertFalse(EpgSnapshot.logosUsable(0L, 30 * day))
+        assertFalse(EpgSnapshot.logosUsable(5 * day, day))
+    }
+
+    @Test fun logosOnlyDropsTheShowsButKeepsLogosAndMatches() {
+        val l = EpgSnapshot.logosOnly(data)
+        assertTrue(l.progs.isEmpty())
+        assertEquals(data.byTitle, l.byTitle)
+        assertEquals(data.icons, l.icons)
+        assertEquals(data.iconByTitle, l.iconByTitle)
+    }
 }
