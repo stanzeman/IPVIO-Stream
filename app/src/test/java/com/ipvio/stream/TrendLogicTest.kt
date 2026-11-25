@@ -13,7 +13,7 @@ class TrendLogicTest {
         TrendLogic.Board("2026-11-25", 1_000L, points, titles)
 
     private fun rank(items: List<T>, b: TrendLogic.Board, limit: Int = 10) =
-        TrendLogic.rank(items, b, { it.key }, { it.title }, { it.local }, limit).map { it.title }
+        TrendLogic.rank(items, b, { it.key }, { it.title }, { if (it.local) TrendLogic.LOCAL_BOOST else 1.0 }, limit).map { it.title }
 
     @Test fun fuse_adds_up_titles_in_several_lists_and_weights_russia_higher() {
         val p = TrendLogic.fuse(listOf(
@@ -66,5 +66,34 @@ class TrendLogicTest {
         assertFalse(TrendLogic.isLocal("uk", listOf("UA")))
         assertFalse(TrendLogic.isLocal(null, emptyList()))
         assertEquals("t42", TrendLogic.key(true, 42))
+    }
+
+    @Test fun focus_only_for_russian_title_info() {
+        assertEquals(TrendLogic.FOCUS_RU, TrendLogic.focusFor("ru"))
+        assertEquals("", TrendLogic.focusFor("de"))
+        assertEquals("", TrendLogic.focusFor(""))
+    }
+
+    @Test fun boost_russian_kazakh_above_other_former_soviet_countries() {
+        val f = TrendLogic.FOCUS_RU
+        assertEquals(TrendLogic.LOCAL_BOOST, TrendLogic.boost(f, "ru", emptyList()), 0.0)
+        assertEquals(TrendLogic.LOCAL_BOOST, TrendLogic.boost(f, "en", listOf("KZ")), 0.0)
+        assertEquals(TrendLogic.CIS_BOOST, TrendLogic.boost(f, "uk", listOf("UA")), 0.0)
+        assertEquals(TrendLogic.CIS_BOOST, TrendLogic.boost(f, null, listOf("BY")), 0.0)
+        assertEquals(1.0, TrendLogic.boost(f, "en", listOf("US")), 0.0)
+        assertTrue(TrendLogic.LOCAL_BOOST > TrendLogic.CIS_BOOST)
+        assertTrue(TrendLogic.W_RU > TrendLogic.W_CIS && TrendLogic.W_CIS > TrendLogic.W_GLOBAL)
+    }
+
+    @Test fun no_boost_without_focus() {
+        assertEquals(1.0, TrendLogic.boost("", "ru", listOf("RU")), 0.0)
+        assertEquals(1.0, TrendLogic.boost("", "uk", listOf("UA")), 0.0)
+    }
+
+    @Test fun board_of_other_focus_is_not_fresh() {
+        val b = TrendLogic.Board("2026-11-25", 1_000L, mapOf("m1" to 1.0), emptyMap(), TrendLogic.FOCUS_RU)
+        assertTrue(TrendLogic.fresh(b, "2026-11-25", TrendLogic.FOCUS_RU))
+        assertFalse(TrendLogic.fresh(b, "2026-11-25", ""))
+        assertTrue(TrendLogic.usable(b, 2_000L))
     }
 }

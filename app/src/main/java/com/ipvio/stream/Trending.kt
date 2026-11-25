@@ -14,8 +14,9 @@ import java.util.Locale
 /**
  * "Top 10 today" (T-064): loads the trends of the day once per day from TMDB and keeps them in a file.
  *
- * Lists: worldwide trends of the day (movies, series, 3 pages each), popular Russian and Kazakh movies of the last years
- * and Russian and Kazakh series that aired recently. About 12 requests per day with a pause between them; on 429 or an
+ * Lists: worldwide trends of the day (movies, series, 3 pages each). Only with Russian title info (T-067): popular
+ * Russian and Kazakh movies of the last years and series that aired recently, plus the same for the other former Soviet
+ * countries with less weight. About 12 requests per day with a pause between them; on 429 or an
  * error the loading stops and the saved board is kept (up to 7 days, see [TrendLogic.usable]).
  */
 object Trending {
@@ -26,6 +27,7 @@ object Trending {
     private const val RETRY_MS = 30L * 60 * 1000
     @Volatile private var cache: TrendLogic.Board? = null
     @Volatile private var lastTry = 0L
+    @Volatile private var lastFocus: String? = null
 
     private fun day(offsetDays: Int = 0): String {
         val c = Calendar.getInstance()
@@ -40,12 +42,15 @@ object Trending {
     suspend fun board(ctx: Context): TrendLogic.Board {
         val today = day()
         val now = System.currentTimeMillis()
+        val focus = TrendLogic.focusFor(Lang.metaCode())
         val saved = cache ?: withContext(Dispatchers.IO) { read(ctx) }?.also { cache = it }
-        if (saved != null && TrendLogic.fresh(saved, today)) return saved
+        if (saved != null && TrendLogic.fresh(saved, today, focus)) return saved
         val old = saved?.takeIf { TrendLogic.usable(it, now) } ?: TrendLogic.EMPTY
-        if (!MetaRepo.enabled() || now - lastTry in 0 until RETRY_MS) return old
+        // A changed language of the title info loads at once (no 30-minute wait)
+        if (!MetaRepo.enabled() || (focus == lastFocus && now - lastTry in 0 until RETRY_MS)) return old
         lastTry = now
-        val loaded = withContext(Dispatchers.IO) { load(today, now) }
+        lastFocus = focus
+        val loaded = withContext(Dispatchers.IO) { load(today, now, focus) }
         if (loaded != null && !loaded.isEmpty()) {
             cache = loaded
             withContext(Dispatchers.IO) { runCatching { write(ctx, loaded) } }
@@ -54,7 +59,7 @@ object Trending {
         return old
     }
 
-    private fun load(today: String, now: Long): TrendLogic.Board? {
+    private fun load(today: String, now: Long, focus: String): TrendLogic.Board? {
         val year = Calendar.getInstance().get(Calendar.YEAR)
         val since = day(-60)
         var failed = false
@@ -84,8 +89,11 @@ object Trending {
         try {
             sources += TrendLogic.Source(TrendLogic.W_GLOBAL, list("$base/trending/movie/day?language=en-US", false, 3))
             sources += TrendLogic.Source(TrendLogic.W_GLOBAL, list("$base/trending/tv/day?language=en-US", true, 3))
-            for ((c, w) in listOf("RU" to TrendLogic.W_RU, "KZ" to TrendLogic.W_KZ)) {
-                val pages = if (c == "RU") 2 else 1
+            val regions = if (focus != TrendLogic.FOCUS_RU) emptyList() else listOf(
+                Triple("RU", TrendLogic.W_RU, 2), Triple("KZ", TrendLogic.W_KZ, 1),
+                Triple(TrendLogic.CIS_COUNTRIES.joinToString("|"), TrendLogic.W_CIS, 1)
+            )
+            for ((c, w, pages) in regions) {
                 sources += TrendLogic.Source(w, list("$base/discover/movie?with_origin_country=$c&sort_by=popularity.desc&primary_release_date.gte=${year - 2}-01-01", false, pages))
                 sources += TrendLogic.Source(w, list("$base/discover/tv?with_origin_country=$c&sort_by=popularity.desc&air_date.gte=$since", true, pages))
             }
@@ -96,7 +104,7 @@ object Trending {
         val points = TrendLogic.fuse(sources)
         if (points.isEmpty()) return null
         // Incomplete (a page failed): show it, but not as "today", so a later start loads again
-        return TrendLogic.Board(if (failed) "" else today, now, points, titles.filterValues { it in points })
+        return TrendLogic.Board(if (failed) "" else today, now, points, titles.filterValues { it in points }, focus)
     }
 
     /** One page; null = error. A 429 stops the whole run. */
@@ -124,14 +132,14 @@ object Trending {
             val t = o.optJSONObject("t") ?: JSONObject()
             val titles = HashMap<String, String>()
             for (k in t.keys()) titles[k] = t.getString(k)
-            TrendLogic.Board(o.getString("day"), o.getLong("at"), points, titles)
+            TrendLogic.Board(o.getString("day"), o.getLong("at"), points, titles, o.optString("f"))
         }
     } catch (e: Exception) {
         null
     }
 
     private fun write(ctx: Context, b: TrendLogic.Board) {
-        val o = JSONObject().put("day", b.day).put("at", b.savedAt)
+        val o = JSONObject().put("day", b.day).put("at", b.savedAt).put("f", b.focus)
             .put("p", JSONObject(b.points)).put("t", JSONObject(b.titles))
         val tmp = File(ctx.filesDir, "$FILE.tmp")
         tmp.writeText(o.toString())

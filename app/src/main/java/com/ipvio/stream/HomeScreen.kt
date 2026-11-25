@@ -148,9 +148,10 @@ private fun buildHome(all: List<Item>, ipvioWanted: Boolean, trend: TrendLogic.B
     // Metadata per title once (the lists below ask several times)
     val infos = HashMap<String, HomeListsLogic.Info>(rm.size + rs.size)
     val info: (Item) -> HomeListsLogic.Info = { i -> infos.getOrPut(i.id) { listInfo(i) } }
-    val local: (Item) -> Boolean = { info(it).local }
-    val trendM = TrendLogic.rank(rm, trend, ::trendKey, { it.title }, local, 20)
-    val trendS = TrendLogic.rank(rs, trend, ::trendKey, { it.title }, local, 20)
+    // Regional extra factor only with the RU focus of the board (T-067)
+    val boostOf: (Item) -> Double = { i -> MetaRepo.cached(i)?.let { m -> TrendLogic.boost(trend.focus, m.lang, m.countries) } ?: 1.0 }
+    val trendM = TrendLogic.rank(rm, trend, ::trendKey, { it.title }, boostOf, 20)
+    val trendS = TrendLogic.rank(rs, trend, ::trendKey, { it.title }, boostOf, 20)
     val trendItems = interleave(trendM, trendS)
     val nowYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
     val rowMP = if (rm === movies) movieP else providerGroups(rm)
@@ -254,7 +255,8 @@ fun HomeScreen(
     var ver by remember { mutableIntStateOf(HomeVer.value.takeIf { it >= 0 } ?: Classifier.version) }
     LaunchedEffect(Unit) { while (true) { delay(45_000); if (ver != Classifier.version) { ver = Classifier.version; HomeVer.value = ver } } }
     var trend by remember { mutableStateOf(HomeVer.trend) }
-    LaunchedEffect(all.isNotEmpty()) { if (all.isNotEmpty()) { trend = Trending.board(ctx); HomeVer.trend = trend } }
+    // Language of the title info as key: switching to or from Russian loads the trends with or without the RU focus
+    LaunchedEffect(all.isNotEmpty(), General.metaLang) { if (all.isNotEmpty()) { trend = Trending.board(ctx); HomeVer.trend = trend } }
     val wantIpvio = AppSettings.ipvioFilter
     val noAdult = Parental.adultOffHome
     // Private categories (T-028) change the rows too: their version is part of the cache key
