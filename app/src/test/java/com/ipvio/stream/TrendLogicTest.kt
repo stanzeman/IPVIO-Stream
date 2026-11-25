@@ -74,15 +74,28 @@ class TrendLogicTest {
         assertEquals("", TrendLogic.focusFor(""))
     }
 
-    @Test fun boost_russian_kazakh_above_other_former_soviet_countries() {
+    @Test fun boost_follows_original_language() {
         val f = TrendLogic.FOCUS_RU
         assertEquals(TrendLogic.LOCAL_BOOST, TrendLogic.boost(f, "ru", emptyList()), 0.0)
-        assertEquals(TrendLogic.LOCAL_BOOST, TrendLogic.boost(f, "en", listOf("KZ")), 0.0)
+        // Kazakh production in Russian: full bonus
+        assertEquals(TrendLogic.LOCAL_BOOST, TrendLogic.boost(f, "ru", listOf("KZ")), 0.0)
+        assertEquals(TrendLogic.LOCAL_BOOST, TrendLogic.boost(f, "kk", emptyList()), 0.0)
         assertEquals(TrendLogic.CIS_BOOST, TrendLogic.boost(f, "uk", listOf("UA")), 0.0)
-        assertEquals(TrendLogic.CIS_BOOST, TrendLogic.boost(f, null, listOf("BY")), 0.0)
+        // Shot in the region, but in English (e.g. "Rise of the Conqueror"): only the small country bonus
+        assertEquals(TrendLogic.COUNTRY_BOOST, TrendLogic.boost(f, "en", listOf("UZ", "US")), 0.0)
+        assertEquals(TrendLogic.COUNTRY_BOOST, TrendLogic.boost(f, "en", listOf("KZ")), 0.0)
         assertEquals(1.0, TrendLogic.boost(f, "en", listOf("US")), 0.0)
-        assertTrue(TrendLogic.LOCAL_BOOST > TrendLogic.CIS_BOOST)
+        assertTrue(TrendLogic.LOCAL_BOOST > TrendLogic.CIS_BOOST && TrendLogic.CIS_BOOST > TrendLogic.COUNTRY_BOOST)
         assertTrue(TrendLogic.W_RU > TrendLogic.W_CIS && TrendLogic.W_CIS > TrendLogic.W_GLOBAL)
+    }
+
+    @Test fun region_lists_by_language_only_with_focus() {
+        assertTrue(TrendLogic.regionLists("").isEmpty())
+        val l = TrendLogic.regionLists(TrendLogic.FOCUS_RU)
+        assertEquals("ru", l[0].first); assertEquals(TrendLogic.W_RU, l[0].second, 0.0)
+        assertEquals("kk", l[1].first); assertEquals(TrendLogic.W_KZ, l[1].second, 0.0)
+        assertTrue(l.drop(2).all { it.second == TrendLogic.W_CIS && "|" !in it.first })
+        assertTrue(l.none { it.first == "en" })
     }
 
     @Test fun no_boost_without_focus() {

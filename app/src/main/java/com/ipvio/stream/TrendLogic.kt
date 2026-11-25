@@ -18,17 +18,29 @@ object TrendLogic {
     const val W_KZ = 1.4
     /** Other Russian-speaking / former Soviet countries: extra weight, but less than Russia and Kazakhstan. */
     const val W_CIS = 1.15
-    /** Extra factor for a playlist title whose original language is Russian or Kazakh, or that was made in RU or KZ. */
+    /** Extra factor for a playlist title whose original language is Russian or Kazakh. */
     const val LOCAL_BOOST = 1.2
-    /** Extra factor for a playlist title from another former Soviet country (or in its language). */
+    /** Extra factor for a playlist title in the language of another former Soviet country. */
     const val CIS_BOOST = 1.1
-    /** Focus name stored with the board; "" = worldwide only. */
-    const val FOCUS_RU = "ru"
+    /** Small factor when only the production country is from the region, not the language (e.g. shot there in English). */
+    const val COUNTRY_BOOST = 1.05
+    /**
+     * Focus name stored with the board; "" = worldwide only. "ru2" = lists by original language: a board saved with the
+     * older country lists ("ru") is not fresh any more and is loaded again at once.
+     */
+    const val FOCUS_RU = "ru2"
 
-    /** Former Soviet countries except RU and KZ (ISO 3166-1), for TMDB `with_origin_country` joined with "|". */
+    /** Former Soviet countries except RU and KZ (ISO 3166-1), for the small country bonus ([COUNTRY_BOOST]). */
     val CIS_COUNTRIES = listOf("UA", "BY", "UZ", "KG", "TJ", "TM", "AZ", "AM", "GE", "MD", "LT", "LV", "EE")
     private val CIS_SET = CIS_COUNTRIES.toSet()
     private val CIS_LANGS = setOf("uk", "be", "uz", "ky", "tg", "tk", "az", "hy", "ka", "lt", "lv", "et")
+    /** Languages asked at TMDB one by one with [W_CIS] (the ones with a noticeable film and series output). */
+    val CIS_QUERY_LANGS = listOf("uk", "be", "uz", "ka", "hy", "az", "ky")
+
+    /** TMDB `discover` lists per original language: (language, weight, pages). Empty without the RU focus. */
+    fun regionLists(focus: String): List<Triple<String, Double, Int>> =
+        if (focus != FOCUS_RU) emptyList()
+        else listOf(Triple("ru", W_RU, 2), Triple("kk", W_KZ, 1)) + CIS_QUERY_LANGS.map { Triple(it, W_CIS, 1) }
 
     /** Focus for the chosen language of the title info ([Lang.metaCode] in the app): Russian = RU/KZ focus, else none. */
     fun focusFor(metaCode: String): String = if (metaCode.trim().lowercase() == "ru") FOCUS_RU else ""
@@ -78,12 +90,19 @@ object TrendLogic {
     fun isCis(lang: String?, countries: List<String>): Boolean =
         lang?.lowercase() in CIS_LANGS || countries.any { it.uppercase() in CIS_SET }
 
-    /** Ranking factor of a playlist title: 1.2 Russian/Kazakh, 1.1 other former Soviet, 1.0 otherwise or without focus. */
-    fun boost(focus: String, lang: String?, countries: List<String>): Double = when {
-        focus != FOCUS_RU -> 1.0
-        isLocal(lang, countries) -> LOCAL_BOOST
-        isCis(lang, countries) -> CIS_BOOST
-        else -> 1.0
+    /**
+     * Ranking factor of a playlist title by its original language: 1.2 Russian/Kazakh, 1.1 another former Soviet language,
+     * 1.05 when only a production country is from there, 1.0 otherwise or without focus.
+     */
+    fun boost(focus: String, lang: String?, countries: List<String>): Double {
+        if (focus != FOCUS_RU) return 1.0
+        val l = lang?.lowercase()
+        return when {
+            l in LOCAL_LANGS -> LOCAL_BOOST
+            l in CIS_LANGS -> CIS_BOOST
+            isLocal(null, countries) || isCis(null, countries) -> COUNTRY_BOOST
+            else -> 1.0
+        }
     }
 
     /** The saved board is from today and for the same focus: no new request. */

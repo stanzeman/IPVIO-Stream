@@ -15,8 +15,8 @@ import java.util.Locale
  * "Top 10 today" (T-064): loads the trends of the day once per day from TMDB and keeps them in a file.
  *
  * Lists: worldwide trends of the day (movies, series, 3 pages each). Only with Russian title info (T-067): popular
- * Russian and Kazakh movies of the last years and series that aired recently, plus the same for the other former Soviet
- * countries with less weight. About 12 requests per day with a pause between them; on 429 or an
+ * movies of the last years and series that aired recently in Russian and Kazakh original language, plus the languages
+ * of the other former Soviet countries with less weight (one request per language, no combined query). About 12 requests per day with a pause between them; on 429 or an
  * error the loading stops and the saved board is kept (up to 7 days, see [TrendLogic.usable]).
  */
 object Trending {
@@ -89,13 +89,10 @@ object Trending {
         try {
             sources += TrendLogic.Source(TrendLogic.W_GLOBAL, list("$base/trending/movie/day?language=en-US", false, 3))
             sources += TrendLogic.Source(TrendLogic.W_GLOBAL, list("$base/trending/tv/day?language=en-US", true, 3))
-            val regions = if (focus != TrendLogic.FOCUS_RU) emptyList() else listOf(
-                Triple("RU", TrendLogic.W_RU, 2), Triple("KZ", TrendLogic.W_KZ, 1),
-                Triple(TrendLogic.CIS_COUNTRIES.joinToString("|"), TrendLogic.W_CIS, 1)
-            )
-            for ((c, w, pages) in regions) {
-                sources += TrendLogic.Source(w, list("$base/discover/movie?with_origin_country=$c&sort_by=popularity.desc&primary_release_date.gte=${year - 2}-01-01", false, pages))
-                sources += TrendLogic.Source(w, list("$base/discover/tv?with_origin_country=$c&sort_by=popularity.desc&air_date.gte=$since", true, pages))
+            // By original language (T-067): Kazakh films shot in Russian count as Russian, films only shot in the region do not
+            for ((lang, w, pages) in TrendLogic.regionLists(focus)) {
+                sources += TrendLogic.Source(w, list("$base/discover/movie?with_original_language=$lang&sort_by=popularity.desc&primary_release_date.gte=${year - 2}-01-01", false, pages))
+                sources += TrendLogic.Source(w, list("$base/discover/tv?with_original_language=$lang&sort_by=popularity.desc&air_date.gte=$since", true, pages))
             }
         } catch (e: Stop) {
             // Too many requests: keep what was saved, try again on the next start of the home screen
