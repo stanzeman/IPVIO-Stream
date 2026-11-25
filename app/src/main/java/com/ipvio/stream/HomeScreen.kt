@@ -298,13 +298,13 @@ fun HomeScreen(
     val histHome = remember(hist, noAdult) { homeSafe(hist, noAdult) }
     val watchHome = remember(watchList, noAdult) { homeSafe(watchList, noAdult) }
     val favLiveHome = remember(favLive, noAdult) { homeSafe(favLive, noAdult) }
-    // Most watched channels (T-068), without adult channels if wanted
+    // Most watched channels (T-070), without adult channels if wanted
     val topLiveHome = remember(byId, LiveWatch.version, noAdult) { homeSafe(LiveWatch.top(ctx, { byId[it] }, { it.kind == Kind.LIVE }, 20), noAdult).take(10) }
     val rowMovies = data.rowMovies
     val rowSeries = data.rowSeries
     // Row lists that were built anew inside the rows on every recomposition
-    val newMovies = remember(rowMovies) { rowMovies.takeLast(40).reversed() }
-    val newSeries = remember(rowSeries) { rowSeries.takeLast(40).reversed() }
+    val newMovies = remember(rowMovies) { RecentSortLogic.newestN(rowMovies, 40) { it.added } }   // #125: same order as the "Neu hinzugefügt" page
+    val newSeries = remember(rowSeries) { RecentSortLogic.newestN(rowSeries, 40) { it.added } }
     val histTop = remember(histHome) { histHome.take(30) }
     val trendItems = data.trendItems
     // "Top 10 today" (T-064): one row each for movies and series
@@ -367,7 +367,6 @@ fun HomeScreen(
     val vodBase = if (tab == 1) movies else series
     val vodTop = if (tab == 1) topM else topS
     val vodNewest = if (tab == 1) data.newM else data.newS
-    val vodLocal = if (tab == 1) data.ruM else data.ruS
     val vodNoun = if (tab == 1) "Filme" else "Serien"
     val openCats: () -> Unit = {
         scope.launch {
@@ -416,7 +415,6 @@ fun HomeScreen(
         HeaderTab("Beliebt & neu", AIcon.Star, "tb:top$tab") { onBrowse(BrowseReq("Beliebt & neu · $vodNoun", vodTop, SORT_PLAYLIST)) },
         HeaderTab("Neue Titel", AIcon.Pulse, "tb:newt$tab") { onBrowse(BrowseReq("Neue Titel · $vodNoun", vodNewest, SORT_PLAYLIST)) },
         HeaderTab("Neu hinzugefügt", AIcon.Sparkle, "tb:new$tab") { onBrowse(BrowseReq("Neu hinzugefügt · $vodNoun", vodBase, SORT_NEW)) },
-        HeaderTab("Russisch & Kasachisch", AIcon.Globe, "tb:ru$tab") { onBrowse(BrowseReq("Russisch & Kasachisch · $vodNoun", vodLocal, SORT_PLAYLIST)) },
         HeaderTab("Alle $vodNoun", AIcon.Grid, "tb:all$tab") { onBrowse(BrowseReq("Alle $vodNoun", vodBase, SORT_NEW)) }
     ) + importedTabs.map { (src, l, id) -> HeaderTab(src, AIcon.Download, id) { onBrowse(BrowseReq("$src · $vodNoun", l, SORT_NEW)) } }
     var inHeader by remember { mutableStateOf(false) }
@@ -653,6 +651,7 @@ fun HomeScreen(
                             when { err != null -> "Die Playlist konnte nicht geladen werden"; allHidden -> "Alle Sprachen dieser Playlist sind ausgeblendet"; else -> "Noch keine Sender" },
                             color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold
                         )
+                        if (err == null && PlaylistStore.unreadable) Text("Die gespeicherten Zugangsdaten konnten nicht gelesen werden. Bitte füge die Playlist erneut hinzu.", color = Muted, fontSize = 16.sp)
                         if (err != null) {
                             Text(err, color = Muted, fontSize = 16.sp)
                             Text("Prüfe die Internetverbindung, die Adresse und die Zugangsdaten.", color = Muted, fontSize = 16.sp)
@@ -738,6 +737,13 @@ fun HomeScreen(
                                     } }
                                     "tops" -> { if (topS.size >= 8) item(key = "tops") {
                                         ItemsRow("Beliebt & neu · Serien", topS, cardW, onOpen) { onBrowse(BrowseReq("Beliebt & neu · Serien", topS, SORT_PLAYLIST)) }
+                                    } }
+                                    // "Russian & Kazakh" on the home screen (T-069): same lists as in the Movies and Series tabs, hidden by default
+                                    "rum" -> { if (data.ruM.size >= 3) item(key = "rum") {
+                                        ItemsRow("Russisch & Kasachisch · Filme", data.ruM.take(40), cardW, onOpen) { onBrowse(BrowseReq("Russisch & Kasachisch · Filme", data.ruM, SORT_PLAYLIST)) }
+                                    } }
+                                    "rus" -> { if (data.ruS.size >= 3) item(key = "rus") {
+                                        ItemsRow("Russisch & Kasachisch · Serien", data.ruS.take(40), cardW, onOpen) { onBrowse(BrowseReq("Russisch & Kasachisch · Serien", data.ruS, SORT_PLAYLIST)) }
                                     } }
                                     "sg" -> { seriesG.entries.take(3).forEach { (g, l) ->
                                         item(key = "s$g") { ItemsRow("Serien · $g", l, cardW, onOpen) { onBrowse(BrowseReq("Serien · $g", l, SORT_NEW)) } }

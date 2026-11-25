@@ -243,7 +243,7 @@ fun SearchScreen(
     val rs = if (fl == 0 || fl == 2) rs0 else emptyList()
     val liveCards: List<HitCard> = when (fl) { 0, 3 -> liveAll; 4 -> rlSport.map { HitCard(it, null) }; else -> emptyList() }
     val sportCards: List<HitCard> = if (fl == 0 || fl == 4) sportAll else emptyList()
-    val firstKey = when { rm.isNotEmpty() -> "rm"; rs.isNotEmpty() -> "rs"; liveCards.isNotEmpty() -> "rl"; sportCards.isNotEmpty() -> "sp"; rp.isNotEmpty() -> "rp"; else -> "" }
+    val firstKey = when { rm.isNotEmpty() -> "rm"; rs.isNotEmpty() -> "rs"; liveCards.isNotEmpty() -> "rl"; sportCards.isNotEmpty() -> "sp"; pe.isNotEmpty() -> "pe"; rp.isNotEmpty() -> "rp"; else -> "" }   // same order as rowOrder: with only people/portal hits Down must still reach them
     // Back: from a hit (or any other element) first to the input (field or app keyboard); from the input to the sidebar
     BackHandler(enabled = !inSidebar) {
         // requestFocus returns false (no exception) when the target is not on screen: then go on to the sidebar instead of doing nothing
@@ -514,7 +514,7 @@ fun SearchScreen(
                                     AppSettings.addSearch(ctx, q); onBrowse(BrowseReq("Suche „$q“ · Live TV", liveCards.map { it.item }, S_SORT_AZ))
                                 }
                             }
-                            "pe" -> if (pe.isNotEmpty()) item(key = "pe") { PeopleRow(pe, onPerson) }
+                            "pe" -> if (pe.isNotEmpty()) item(key = "pe") { PeopleRow(pe, if (firstKey == "pe") firstRes else null, onPerson) }
                             "rp" -> if (rp.isNotEmpty()) item(key = "rp") {
                                 SearchRow("Im Portal gefunden", rp, openS, if (firstKey == "rp") firstRes else null) {
                                     AppSettings.addSearch(ctx, q); onBrowse(BrowseReq("Suche „$q“ · Portal", rp, S_SORT_AZ))
@@ -1019,24 +1019,24 @@ private fun MiniChip(label: String, selected: Boolean, modifier: Modifier = Modi
 
 /** Row of people found by the search (T-053c): round photo and name; a tap opens the person page. */
 @Composable
-private fun PeopleRow(list: List<PersonRef>, onPerson: (PersonRef) -> Unit) {
+private fun PeopleRow(list: List<PersonRef>, first: FocusRequester?, onPerson: (PersonRef) -> Unit) {
     Column(Modifier.padding(top = sk(32))) {
         Text(Lang.tr("Personen"), color = Color.White, fontSize = skf(26), fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = sk(64)))
         LazyRow(
             contentPadding = PaddingValues(horizontal = sk(64), vertical = sk(16)),
             horizontalArrangement = Arrangement.spacedBy(sk(22))
         ) {
-            itemsIndexed(list.take(40)) { _, p -> PersonCard(p, 130.dp) { onPerson(p) } }
+            itemsIndexed(list.take(40)) { i, p -> PersonCard(p, 130.dp, if (i == 0 && first != null) Modifier.focusRequester(first) else Modifier) { onPerson(p) } }
         }
     }
 }
 
 @Composable
-private fun PersonCard(p: PersonRef, w: Dp, onClick: () -> Unit) {
+private fun PersonCard(p: PersonRef, w: Dp, modifier: Modifier = Modifier, onClick: () -> Unit) {
     var f by remember { mutableStateOf(false) }
     val s by animateFloatAsState(if (f) focusScale(1.06f) else 1f, label = "personcard")
     Column(
-        Modifier.width(w).graphicsLayer { scaleX = s; scaleY = s }
+        modifier.width(w).graphicsLayer { scaleX = s; scaleY = s }
             .onFocusChanged { f = it.isFocused }
             .clickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,

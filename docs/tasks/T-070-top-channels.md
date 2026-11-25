@@ -1,4 +1,4 @@
-# T-068 – Most watched channels
+# T-070 – Most watched channels
 
 Status: implemented, not built with Gradle, not device tested. JVM tests for the pure logic ran (13 of 13 passed).
 
@@ -14,7 +14,7 @@ Ranking by watch time. A viewing counts only from 30 seconds on, so zapping does
 - `PlayerScreen.kt` (protected, approved by the fork owner on 25 Nov 2026): the existing 5-second tick adds 5 s while a live channel is playing (not archive, not paused, not buffering). The viewing ends on channel change, when the player closes and when the app goes to the background. No other player change.
 - `LiveGrid.kt`: row "Most watched channels" (up to 10 channel cards) above the category tiles, only when watch time exists. The first card takes the focus; after the player the played card gets it back and the tiles (not a category) are shown. P+/P- in the player switch within these channels.
 - `HomeLayout.kt`, `HomeScreen.kt`: new home block `topch` "Most watched channels" after "My channels". It can be switched off and moved in the home layout settings like the other blocks. It is shown only when watch time exists; adult channels follow the home screen setting.
-- `DictT068.kt`, `Lang.kt`: two new UI strings in all columns (drafted, not reviewed by a native speaker).
+- `DictT070.kt`, `Lang.kt`: two new UI strings in all columns (drafted, not reviewed by a native speaker).
 
 ## Cost
 - Storage: one line per channel (about 60 bytes), at most 200 channels, so about 12 KB per profile.
@@ -26,7 +26,7 @@ Ranking by watch time. A viewing counts only from 30 seconds on, so zapping does
 - Multi view does not count watch time.
 
 ## Tests
-`LiveWatchLogicTest` (10 tests) and `DictT068Test` (3 tests) ran with JUnit 4.13.2 outside Gradle (Kotlin 2.0.21 compiler from the local Gradle install): 13 of 13 passed. Android files (`LiveWatch.kt`, `LiveGrid.kt`, `HomeScreen.kt`, `PlayerScreen.kt`) were not compiled here.
+`LiveWatchLogicTest` (10 tests) and `DictT070Test` (3 tests) ran with JUnit 4.13.2 outside Gradle (Kotlin 2.0.21 compiler from the local Gradle install): 13 of 13 passed. Android files (`LiveWatch.kt`, `LiveGrid.kt`, `HomeScreen.kt`, `PlayerScreen.kt`) were not compiled here.
 
 ## Device test steps
 1. Install, open Live TV in tile view. No new row yet.

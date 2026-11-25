@@ -155,12 +155,12 @@ class ParsedPlaylist(
     val counts: Map<String, Int> = emptyMap(), val bytes: Map<String, Long> = emptyMap(),
     /** Channels with archive (catchup) according to the playlist: channel ID → details. */
     val catchup: Map<String, CatchupInfo> = emptyMap(),
-    /** T-058: what parsing left out and why (for the load report on the Diagnostics page). */
+    /** T-067: what parsing left out and why (for the load report on the Diagnostics page). */
     val report: ParseReport = ParseReport()
 )
 
 /**
- * T-058: entries of a list and where they went. [entries] = address lines with an #EXTINF line, [separators] = skipped
+ * T-067: entries of a list and where they went. [entries] = address lines with an #EXTINF line, [separators] = skipped
  * divider lines ("##### DE #####"), [hiddenLang] / [hiddenMode] = left out by the language filter or the content mode,
  * [episodes] = series entries (episodes or placeholders) that were combined into [Kind.SERIES] items.
  */
@@ -284,7 +284,7 @@ object M3uParser {
         epgFromHeader(text.lineSequence().firstOrNull { it.startsWith("#EXTM3U") })
 
     private fun clean(raw: String): String {
-        // T-059: each regular expression only runs when its cheap necessary condition holds (same result, the profile of a
+        // T-068: each regular expression only runs when its cheap necessary condition holds (same result, the profile of a
         // 205,000-entry list on the JVM showed clean() as the largest part of parsing)
         var t = if (raw.indexOf('|') >= 0 || raw.indexOf(':') >= 0) raw.replace(PREFIX, "") else raw
         t = LangTagLogic.stripDashTag(t)
@@ -369,7 +369,8 @@ object M3uParser {
             if (l.startsWith("#EXTINF")) {
                 info = l
                 name = l.substringAfterLast(',').trim()
-                titleGroup = attr(l, "group-title")
+                // #145 (upstream): also tvg-group, capitals and single quotes
+                titleGroup = attr(l, "group-title")?.ifBlank { null } ?: M3uGroupLogic.fromInfo(l)
                 group = LoadLogic.pickGroup(titleGroup, extGrp)
             } else if (l.startsWith("#EXTGRP", ignoreCase = true)) {
                 // "#EXTGRP:name" may come before or after its #EXTINF line
@@ -434,7 +435,7 @@ object M3uParser {
         val title: String, val logo: String?, val group: String, val q: String?, val lang: String,
         val dist: String? = null, val placeholder: Boolean = false
     ) {
-        /** T-058: split off from the first series of the same name (then its year or country tells them apart). */
+        /** T-067: split off from the first series of the same name (then its year or country tells them apart). */
         var split = false
         var n = 0
         var ss = IntArray(4)
@@ -493,6 +494,7 @@ object M3uParser {
         var header: String? = null
         var headCu: CatchupInfo? = null
         val catchup = HashMap<String, CatchupInfo>()
+        val mergeSeasons = LangTagLogic.MERGE_SEASONS in hidden   // #151
 
         var nEntries = 0; var nSep = 0; var nLang = 0; var nMode = 0; var nEp = 0
         entries(lines, check, onHeader = { header = it; headCu = CatchupLogic.fromInfo(it, "") }) { e ->
@@ -507,15 +509,22 @@ object M3uParser {
                     val m = kd.se
                     // Key (= series ID) as before from the cleaned name, so Resume/My list are preserved
                     val rawName = m?.groupValues?.get(1) ?: e.name
-                    val cleaned = clean(rawName)
+                    var cleaned = clean(rawName)
+                    var season = m?.groupValues?.get(2)?.toIntOrNull() ?: 1
+                    // #151: a provider series that is one season of a show ("Show S02") joins the other seasons of that show
+                    var seasonOf = false
+                    if (mergeSeasons && e.url.endsWith("." + XtreamLogic.LAZY_EXT)) {
+                        SeasonMergeLogic.split(cleaned)?.let { (b, s) -> cleaned = b; season = s; seasonOf = true }
+                    }
                     val base = cleaned.lowercase()
-                    // T-058: same name, but another provider series (placeholder in another category, or other year or
+                    // T-067: same name, but another provider series (placeholder in another category, or other year or
                     // country): own key. The first one keeps its key, title and year, so its ID and data stay the same.
+                    // A season joined by #151 is never split off again.
                     val dist = SeriesKeyLogic.distinguisher(rawName)
                     val ph = SeriesKeyLogic.isPlaceholder(e.url)
                     var key = base
                     val first = series[base]
-                    if (first != null && SeriesKeyLogic.differs(first.group, first.dist, first.placeholder, group, dist, ph)) {
+                    if (!seasonOf && first != null && SeriesKeyLogic.differs(first.group, first.dist, first.placeholder, group, dist, ph)) {
                         key = SeriesKeyLogic.altKey(base, group, dist, first.group != group)
                     }
                     val title = TitleText.title(cleaned)
@@ -524,7 +533,6 @@ object M3uParser {
                             .also { if (key != base) it.split = true }
                     }
                     if (acc.done) return@entries
-                    val season = m?.groupValues?.get(2)?.toIntOrNull() ?: 1
                     val num = m?.groupValues?.get(3)?.toIntOrNull() ?: (acc.n + 1)
                     val vl = pool.ofOrNull(LANG.find(e.name)?.groupValues?.get(1)?.uppercase())
                     val label = pool.of(listOfNotNull(vl, q, group.take(18)).joinToString(" · "))
@@ -566,7 +574,7 @@ object M3uParser {
                 }
                 i = j
             }
-            // T-058: a series split off from the first one of its name: the year goes into the year field, a country into the
+            // T-067: a series split off from the first one of its name: the year goes into the year field, a country into the
             // title ("The Office (UK)"). The first series stays exactly as before.
             val year = if (acc.split) SeriesKeyLogic.yearOf(acc.dist) else null
             val title = if (acc.split && acc.dist != null && year == null) "${acc.title} (${acc.dist})" else acc.title

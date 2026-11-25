@@ -124,7 +124,7 @@ internal fun LiveGrid(liveAll: List<Item>, groupsAll: Map<String, List<Item>>, f
         )
     }
 
-    // Most watched channels (T-068): row above the category tiles, only when there is watch time
+    // Most watched channels (T-070): row above the category tiles, only when there is watch time
     val topCh = remember(live, LiveWatch.version) { LiveWatch.top(ctx, { byId.value[it] }) }
 
     // Channels of the open category (quality variants of one channel as one card, like the list view)
@@ -261,7 +261,7 @@ internal fun LiveGrid(liveAll: List<Item>, groupsAll: Map<String, List<Item>>, f
 }
 
 /**
- * Row "Most watched channels" above the category tiles (T-068): up to 10 channel cards, most watched first.
+ * Row "Most watched channels" above the category tiles (T-070): up to 10 channel cards, most watched first.
  * The first card takes the content focus; after the player the card of the played channel gets it back.
  */
 @Composable

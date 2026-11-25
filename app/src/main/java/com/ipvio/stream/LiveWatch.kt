@@ -6,7 +6,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 
 /**
- * Most watched live channels (T-068): watch time per channel, per profile (rules in [LiveWatchLogic]).
+ * Most watched live channels (T-070): watch time per channel, per profile (rules in [LiveWatchLogic]).
  * The player calls [tick] every few seconds while a live channel plays; storage is written only when a viewing ends
  * (channel change, player closed, app in the background) and only if it lasted at least 30 seconds.
  * Private categories are never recorded (like the history).

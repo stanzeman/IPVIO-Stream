@@ -5,7 +5,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Most watched channels (T-068). */
+/** Most watched channels (T-070). */
 class LiveWatchLogicTest {
     private val day = 86_400_000L
     private val t0 = 1_700_000_000_000L

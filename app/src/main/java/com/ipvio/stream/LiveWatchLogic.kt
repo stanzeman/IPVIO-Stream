@@ -1,7 +1,7 @@
 package com.ipvio.stream
 
 /**
- * Most watched live channels (T-068). Without Android, testable.
+ * Most watched live channels (T-070). Without Android, testable.
  *
  * Every live channel collects its watch time in seconds. A viewing counts only from [MIN_SEC] seconds on, so zapping
  * through channels does not change the list. Older watch time loses weight: it halves every [HALF_LIFE_DAYS] days, so a

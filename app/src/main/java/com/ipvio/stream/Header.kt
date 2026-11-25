@@ -4,6 +4,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -85,7 +87,10 @@ fun HeaderBar(
             SearchPill(if (tabs.isEmpty()) 467 else 330, onSearch, onLeftEdge)
             if (tabs.isNotEmpty()) {
                 Spacer(Modifier.width(dpx(22)))
-                Row(horizontalArrangement = Arrangement.spacedBy(dpx(8)), verticalAlignment = Alignment.CenterVertically) {
+                // Scrolls sideways (T-069): with five or more tabs plus playlist, clock, bell and profile the row can be wider than
+                // the screen; without scrolling the last tabs (for example "All …") were cut off and could not be reached.
+                // A focused tab brings itself into view, so Right on the remote moves the row along.
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(dpx(8)), verticalAlignment = Alignment.CenterVertically) {
                     tabs.forEachIndexed { i, t ->
                         NavTab(t, if (i == 0) (if (firstIsContent) ContentFocus.req else HeaderFocus.firstTab) else null)
                     }
