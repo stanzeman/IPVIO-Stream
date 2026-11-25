@@ -759,7 +759,12 @@ object Classifier {
         running = true
         try {
             // Load stored results in one go (instead of one file per title): only really new titles are queried
+            val firstLoad = !MetaRepo.isIndexLoaded()
             MetaRepo.loadIndex(ctx)
+            // T-071: the home screen is built right after the start, before the stored index is read, so every title is
+            // still without metadata there. Without a version step it stayed like that when no title was new: the rows that
+            // need TMDB data ("Russian & Kazakh", "Popular & new") were empty until something else changed.
+            if (firstLoad) version++
             phase = "Metadaten"
             val todo = items.filter { MetaRepo.cached(it) == null && !MetaRepo.missed(it) }
             total = items.size
