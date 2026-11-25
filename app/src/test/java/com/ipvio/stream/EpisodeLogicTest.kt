@@ -171,15 +171,19 @@ class EpisodeTableTest {
         org.junit.Assert.assertEquals(2, seasonCount(plain))
     }
 
-    @Test fun merktAndereFolgeAuchBeiKurzemReinschauen() {
-        // was saved at episode 40, now 10 seconds into episode 42: must be remembered
-        assertTrue(ResumeLogic.shouldSave(true, 1, 40, 1, 42, 10_000, false))
+    @Test fun shortLookIntoAnotherEpisodeDoesNotMoveTheEntry() {
+        // T-072: was saved at episode 40, now 10 seconds (or 4 minutes) into episode 42: stays at 40
+        assertFalse(ResumeLogic.shouldSave(true, 1, 40, 1, 42, 10_000, false))
+        assertFalse(ResumeLogic.shouldSave(true, 1, 40, 1, 42, 240_000, false))
+        // from 5 minutes on, episode 42 is remembered
+        assertTrue(ResumeLogic.shouldSave(true, 1, 40, 1, 42, 301_000, false))
     }
 
     @Test fun kurzesReinschauenInDieselbeFolgeAendertNichts() {
         assertFalse(ResumeLogic.shouldSave(true, 1, 40, 1, 40, 10_000, false))
         assertFalse(ResumeLogic.shouldSave(false, 0, 0, 1, 3, 10_000, false))
-        assertTrue(ResumeLogic.shouldSave(false, 0, 0, 1, 3, 45_000, false))
+        assertFalse(ResumeLogic.shouldSave(false, 0, 0, 1, 3, 45_000, false))     // T-072: 45 s is no longer enough
+        assertTrue(ResumeLogic.shouldSave(false, 0, 0, 1, 3, 301_000, false))
         assertTrue(ResumeLogic.shouldSave(true, 1, 3, 1, 3, 10_000, true))
         // Movies (no episode): short = change nothing
         assertFalse(ResumeLogic.shouldSave(true, 0, 0, 0, 0, 10_000, false))

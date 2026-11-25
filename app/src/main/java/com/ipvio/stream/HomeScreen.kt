@@ -573,6 +573,10 @@ fun HomeScreen(
         else { lastBack = now; android.widget.Toast.makeText(ctx, Lang.tr("Noch einmal Zurück drücken zum Beenden"), android.widget.Toast.LENGTH_SHORT).show() }
     }
 
+    // T-072: titles not continued for the set number of days leave "Continue watching" (movies and series separately)
+    LaunchedEffect(byId, General.resumeMovieDays, General.resumeSeriesDays) {
+        if (byId.isNotEmpty()) WatchStore.pruneExpired(ctx, System.currentTimeMillis()) { id -> byId[id]?.let { it.kind == Kind.SERIES } }
+    }
     val resumeAll by remember(byId) { derivedStateOf { WatchStore.entries.mapNotNull { e -> byId[e.itemId]?.let { e to it } } } }
     val resumeList = remember(resumeAll, noAdult) { if (!noAdult) resumeAll else resumeAll.filterNot { ParentalLogic.isAdult(it.second.group, it.second.title) } }
     // Movies/series tab: the same lists filtered by kind, kept between recompositions

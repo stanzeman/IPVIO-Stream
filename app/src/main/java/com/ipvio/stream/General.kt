@@ -18,11 +18,17 @@ object General {
     private const val PREFS = "ipvio_general"
     /** Refresh mode when the user never picked one: 2 = daily (see [refreshMode]). */
     const val DEFAULT_REFRESH_MODE = 2
+    /** T-072: default for [resumeMovieDays]. */
+    const val DEFAULT_RESUME_MOVIE_DAYS = 3
     var autoStart by mutableStateOf(false)
     var startTab by mutableIntStateOf(0)
     var resumeLive by mutableStateOf(false)
     /** Resume the last watched movie / series at start at the remembered position. */
     var resumeVod by mutableStateOf(false)
+    /** T-072: movies leave "Continue watching" after this many days without watching on (0 = never). */
+    var resumeMovieDays by mutableIntStateOf(DEFAULT_RESUME_MOVIE_DAYS)
+    /** T-072: the same for series (default never). */
+    var resumeSeriesDays by mutableIntStateOf(0)
     var confirmExit by mutableStateOf(true)
     /** #95: keep the screen awake while the app is open, not only during playback (default off = as before). */
     var keepAwakeBrowse by mutableStateOf(false)
@@ -161,6 +167,8 @@ object General {
         textScaleIdx = p.getInt("text_scale", 1).coerceIn(0, TEXT_SCALES.lastIndex)
         defaultAspect = p.getInt("aspect", 0).coerceIn(0, ASPECT_NAMES.lastIndex)
         heroSec = p.getInt("hero_sec", 9).coerceIn(0, 60)
+        resumeMovieDays = p.getInt("resume_movie_days", DEFAULT_RESUME_MOVIE_DAYS).takeIf { it in ResumeLogic.EXPIRE_DAYS } ?: DEFAULT_RESUME_MOVIE_DAYS
+        resumeSeriesDays = p.getInt("resume_series_days", 0).takeIf { it in ResumeLogic.EXPIRE_DAYS } ?: 0
         showClock = p.getBoolean("show_clock", true)
         sportLive = p.getBoolean("sport_live", true)
         fitX = p.getInt("fit_x", 0).coerceIn(0, 10)
@@ -212,6 +220,8 @@ object General {
         fitX = x.coerceIn(0, 10); fitY = y.coerceIn(0, 10)
         prefs(c).edit().putInt("fit_x", fitX).putInt("fit_y", fitY).apply()
     }
+    fun setResumeMovieDays(c: Context, v: Int) { resumeMovieDays = v; prefs(c).edit().putInt("resume_movie_days", v).apply() }
+    fun setResumeSeriesDays(c: Context, v: Int) { resumeSeriesDays = v; prefs(c).edit().putInt("resume_series_days", v).apply() }
     fun setHeroSec(c: Context, v: Int) { heroSec = v.coerceIn(0, 60); prefs(c).edit().putInt("hero_sec", heroSec).apply() }
     fun markRefreshed(c: Context) { lastRefresh = System.currentTimeMillis(); prefs(c).edit().putLong("last_refresh", lastRefresh).apply() }
 
