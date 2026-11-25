@@ -37,7 +37,11 @@ data class Meta(
     /** Age rating as shown, e.g. "FSK 12" or "PG-13 (US)", see [AgeRatingLogic]. */
     val age: String? = null,
     /** The age rating was asked for (also true when none exists), so older cache entries load it once. */
-    val ageChecked: Boolean = false
+    val ageChecked: Boolean = false,
+    /** Series: date of the latest episode ("2026-11-20", T-063), null = not known yet. */
+    val lastAir: String? = null,
+    /** When [lastAir] was asked for at TMDB (0 = never), see [SeriesAirLogic.due]. */
+    val lastAirTs: Long = 0L
 ) {
     /** Rating for sorting and filtering (0 to 10): first IMDb, then Rotten Tomatoes, then TMDB, last the provider's value. */
     fun score(): Double? =
@@ -114,7 +118,8 @@ object MetaRepo {
                             (j.str("gids") ?: "").split(",").mapNotNull { it.toIntOrNull() },
                             j.str("lang"), votes = j.optInt("votes"),
                             countries = (j.str("countries") ?: "").split(",").filter { it.isNotBlank() },
-                            uiLang = j.optString("ui", "de"), checked = j.optBoolean("chk")
+                            uiLang = j.optString("ui", "de"), checked = j.optBoolean("chk"),
+                            lastAir = j.str("la"), lastAirTs = j.optLong("lat")
                         )
                         slimTs[k] = ts
                     } catch (e: Exception) {
@@ -142,6 +147,7 @@ object MetaRepo {
                     j.put("ext", m.extended); j.put("imdb", m.imdbRating); j.put("rt", m.rtRating)
                     j.put("gids", m.genreIds.joinToString(",")); j.put("lang", m.lang); j.put("votes", m.votes)
                     j.put("countries", m.countries.joinToString(",")); j.put("ui", m.uiLang); j.put("chk", m.checked)
+                    if (m.lastAir != null || m.lastAirTs > 0) { j.put("la", m.lastAir); j.put("lat", m.lastAirTs) }
                     w.write(k); w.write("\t"); w.write(j.toString()); w.write("\n")
                 }
                 for (k in misses) {
@@ -263,6 +269,7 @@ object MetaRepo {
             j.put("countries", m.countries.joinToString(",")); j.put("ui", m.uiLang)
             j.put("chk", m.checked); j.put("v", MATCH_V)
             j.put("age", m.age); j.put("agec", m.ageChecked)
+            j.put("la", m.lastAir); j.put("lat", m.lastAirTs)
             File(dir(c), k.hashCode().toString()).writeText(j.toString())
         } catch (e: Exception) {
         }
@@ -287,7 +294,8 @@ object MetaRepo {
                 countries = (j.str("countries") ?: "").split(",").filter { it.isNotBlank() },
                 uiLang = j.optString("ui", "de"),
                 checked = j.optBoolean("chk"),
-                age = j.str("age"), ageChecked = j.optBoolean("agec")
+                age = j.str("age"), ageChecked = j.optBoolean("agec"),
+                lastAir = j.str("la"), lastAirTs = j.optLong("lat")
             )
         } catch (e: Exception) {
             null
@@ -405,6 +413,27 @@ object MetaRepo {
     }
 
     /**
+     * Series: ask TMDB for the date of the latest episode (T-063). One request per series; the background phase calls it
+     * only when [SeriesAirLogic.due]. Also fills the country if it is still missing.
+     */
+    suspend fun fillLastAir(ctx: Context, i: Item) {
+        val k = key(i)
+        val m = memGet(k) ?: load(ctx, k) ?: return
+        if (m.tmdbId <= 0 || !m.isTv) return
+        val body = get("https://api.themoviedb.org/3/tv/${m.tmdbId}?api_key=${Config.TMDB_KEY}") ?: return
+        try {
+            val o = JSONObject(body)
+            val countries = if (m.countries.isNotEmpty()) m.countries else ArrayList<String>().also { l ->
+                o.optJSONArray("origin_country")?.let { a -> for (x in 0 until a.length()) l.add(a.getString(x)) }
+            }.ifEmpty { listOf("--") }
+            val nm = m.copy(lastAir = o.str("last_air_date") ?: m.lastAir, lastAirTs = System.currentTimeMillis(), countries = countries)
+            memPut(k, nm)
+            save(ctx, k, nm)
+        } catch (e: Exception) {
+        }
+    }
+
+    /**
      * [needAge] = true only on the detail page (the title was opened): only then is the age rating asked for. In 1.4.4
      * it was asked for every title that got the focus (slideshow, billboard, rows, search), and every detail stored before
      * counted as outdated, which made browsing slow. Elsewhere the details come without the age rating.
@@ -463,7 +492,8 @@ object MetaRepo {
             }
             val age = if (needAge) AgeRatingLogic.pick(ageByCountry(o, b.isTv), country) else b.age
             m = b.copy(overview = ov ?: b.overview.takeIf { b.uiLang == Lang.metaCode() }, genres = genres, runtime = runtime,
-                trailerKey = trailer, imdbId = imdb, uiLang = Lang.metaCode(), checked = true, age = age, ageChecked = needAge || b.ageChecked)
+                trailerKey = trailer, imdbId = imdb, uiLang = Lang.metaCode(), checked = true, age = age, ageChecked = needAge || b.ageChecked,
+                lastAir = if (b.isTv) o.str("last_air_date") ?: b.lastAir else b.lastAir, lastAirTs = if (b.isTv) System.currentTimeMillis() else b.lastAirTs)
         } catch (e: Exception) {
         }
         if (Config.OMDB_KEY.isNotBlank() && m.imdbId != null) {

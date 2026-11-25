@@ -763,6 +763,28 @@ object Classifier {
                 if (n % 100 == 0) MetaRepo.saveIndex(ctx)
             }
             if (need.isNotEmpty()) version++
+            // T-063: date of the latest episode of every found series (one request each, again every 7 / 90 days)
+            phase = "Serien"
+            val now = System.currentTimeMillis()
+            val nowYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+            val airNeed = items.filter { it.kind == Kind.SERIES }.filter { i ->
+                val m = MetaRepo.cached(i)
+                m != null && m.isTv && m.tmdbId > 0 && SeriesAirLogic.due(m.lastAir, m.lastAirTs, now, nowYear)
+            }
+            total = airNeed.size
+            progress = 0
+            n = 0
+            for (chunk in airNeed.chunked(12)) {
+                if (lowMemory()) { MetaRepo.trim(); if (lowMemory()) { version++; return } }
+                coroutineScope { chunk.map { async { MetaRepo.fillLastAir(ctx, it) } }.awaitAll() }
+                progress += chunk.size
+                n++
+                if (n % 8 == 0) version++
+                kotlinx.coroutines.delay(150)
+                while (AppNav.playing) kotlinx.coroutines.delay(2000)
+                if (n % 100 == 0) MetaRepo.saveIndex(ctx)
+            }
+            if (airNeed.isNotEmpty()) version++
         } finally {
             running = false
             kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { MetaRepo.saveIndex(ctx) }

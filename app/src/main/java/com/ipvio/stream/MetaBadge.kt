@@ -58,7 +58,7 @@ fun MetaBadge(modifier: Modifier = Modifier) {
             }
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
-                    if (Classifier.phase == "Länder") "Länder werden ergänzt" else "Genres werden erkannt",
+                    when (Classifier.phase) { "Länder" -> "Länder werden ergänzt"; "Serien" -> "Serien-Daten werden ergänzt"; else -> "Genres werden erkannt" },
                     color = Color.White.copy(alpha = 0.92f), fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1
                 )
                 Text(nf.format(done) + " / " + nf.format(total) + " · " + (frac * 100).toInt() + " %", color = Muted, fontSize = 13.sp, maxLines = 1)
