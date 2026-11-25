@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- "Top 10 today": the extra weight on Russia and Kazakhstan now applies only when "Language of title info" is Russian. Other former Soviet countries (Ukraine, Belarus, Uzbekistan, Kyrgyzstan, Tajikistan, Turkmenistan, Azerbaijan, Armenia, Georgia, Moldova, the Baltic states) get a smaller extra weight. With any other language the list shows the worldwide trends only; changing the language loads the list again. The "Russian & Kazakh" row stays as it is. Not device tested yet
 - Home screen: "Top 10 today" is now two rows, "Top 10 movies today" and "Top 10 series today". Source: worldwide TMDB trends of the day plus popular Russian and Kazakh titles (more weight on both); titles are matched by their TMDB id, not by their name, so Russian titles show up too. Loaded once per day (about 12 requests with a pause, stops on "too many requests"), the last result is kept for up to 7 days. Needs your own TMDB key. Not device tested yet
 - Movies and Series tabs: the first row is "Top 10 today" (falls back to "Popular & new" while no trend list is there). Not device tested yet
 - "Top rated" is replaced by "Popular & new": titles of the last two years (series by their latest episode) by weighted rating and number of votes, filled up with older titles when there are too few. Home rows "Popular & new · Movies" and "Popular & new · Series". Not device tested yet
