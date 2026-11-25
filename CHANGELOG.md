@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Series: the date of the latest episode is fetched from TMDB in the background (new phase "Series data" after the genre and country detection; one request per series, running series again every 7 days, older ones every 90 days) and when a series is opened. It is the base for "New titles" and "Popular & new". Not device tested yet
 
 ## 1.4.9
 - Series: "Download season" is shown on every series, also before the first play (before, it was only shown after a series had been started). Not device tested yet
