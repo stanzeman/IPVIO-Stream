@@ -1,7 +1,7 @@
 # Changelog
 
 ## Unreleased
-- Fork only: Settings > Playlists > Edit: "Shown additionally" can be switched on again for a playlist that is not the main list (upstream allows only switching it off since 1.4.2). Movies and series of both lists appear together; Live TV switches the source with the button at the top. Each additional list needs memory. Not device tested yet
+- Fork only: Settings > Playlists > Edit: the window fits the TV screen and only its middle part scrolls, so "Apply" and "Cancel" stay visible (with the "Shown additionally" row the window was taller than a 1080p screen). Switching "Shown additionally" on is upstream behaviour again since 23 Nov 2026. Not device tested yet
 
 ## 1.4.9
 - Series: "Download season" is shown on every series, also before the first play (before, it was only shown after a series had been started). Not device tested yet

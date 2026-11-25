@@ -1,4 +1,4 @@
-# T-058 – Switch "shown additionally" on again (fork only)
+# T-058 – Switch "shown additionally" on again (fork only); now: edit window fits the screen
 
 Status: implemented, not built with Gradle, not device tested. Fork only: not for a pull request to upstream, because upstream switched this off on purpose (code comment: "Show as well can no longer be switched on (1.4.2)"; the reason is not documented).
 
@@ -21,3 +21,6 @@ The fork owner uses a live TV M3U as main list and a video portal for movies and
 1. Make the live TV M3U the main list. Settings > Playlists > the portal list > Edit: "Zusätzlich angezeigt" = On, "Übernehmen".
 2. Movies and Series show the portal titles; Live TV still shows the M3U channels.
 3. Switch it off again: the portal titles disappear.
+
+## Update 25 Nov 2026 (upstream 1.4.9 / 2.0)
+Upstream switched "shown additionally" on again itself (its task T-051, 23 Nov 2026) with its own apply logic (`PlaylistStore.showAsync`). The fork now uses upstream's logic. What stays fork only: the edit window is limited to the screen height and its middle part takes the free height (`weight(1f, fill = false)` instead of upstream's fixed 420 dp), inside upstream's new `CompositionLocalProvider(LocalBringIntoViewSpec provides InstantSpec)`.
