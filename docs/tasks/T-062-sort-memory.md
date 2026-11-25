@@ -14,5 +14,5 @@ A category opens with "Newly added". After switching to "Popularity" and leaving
 `BrowseSortLogicTest` (5 tests).
 
 ## Device test steps
-1. Movies > a category > sort "Beliebtheit". Back, open another movie category: "Beliebtheit".
-2. Series categories are not affected. "Zurücksetzen" goes back to "Neu hinzugefügt" and forgets it.
+1. Movies > a category > sort "Popularity". Back, open another movie category: "Popularity".
+2. Series categories are not affected. "Reset" goes back to "Recently added" and forgets it.
