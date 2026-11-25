@@ -61,16 +61,18 @@ import coil.compose.AsyncImage
 internal fun LiveGrid(liveAll: List<Item>, groupsAll: Map<String, List<Item>>, favsAll: List<Item>, onOpen: (Item) -> Unit, onPlayNow: (Item) -> Unit) {
     val ctx = LocalContext.current
     val srcNames = PlaylistStore.sourceNames
-    val srcK = if (LiveSource.k in srcNames.indices && srcNames.size > 1) LiveSource.k else -1
+    // Playlists used by Live TV (upstream T-051, same as the list view): source indices, empty = all shown playlists
+    val srcVer = AreaSource.version
+    val srcK = remember(srcVer, srcNames, PlaylistMode.version) { AreaSource.sources(ctx, SectionSourceLogic.SECTION_LIVE) }
     // Same channel sets as the list view (private categories only in their own category)
-    val live = remember(liveAll, srcK, PrivateCats.version) { PrivateCats.filter(if (srcK < 0) liveAll else liveAll.filter { it.src == srcK }) }
+    val live = remember(liveAll, srcK, PrivateCats.version) { PrivateCats.filter(if (srcK.isEmpty()) liveAll else liveAll.filter { it.src in srcK }) }
     val groups = remember(groupsAll, srcK) {
-        if (srcK < 0) groupsAll else LinkedHashMap<String, List<Item>>().also { m ->
-            for ((g, l) in groupsAll) { val f = l.filter { it.src == srcK }; if (f.isNotEmpty()) m[g] = f }
+        if (srcK.isEmpty()) groupsAll else LinkedHashMap<String, List<Item>>().also { m ->
+            for ((g, l) in groupsAll) { val f = l.filter { it.src in srcK }; if (f.isNotEmpty()) m[g] = f }
         }
     }
     val genres = remember(live) { LiveGenre.split(live) }
-    val favs = remember(favsAll, srcK) { if (srcK < 0) favsAll else favsAll.filter { it.src == srcK } }
+    val favs = remember(favsAll, srcK) { if (srcK.isEmpty()) favsAll else favsAll.filter { it.src in srcK } }
     CatFavs.init(ctx)
     ChannelLists.init(ctx)
     HiddenCats.init(ctx)
@@ -165,8 +167,16 @@ internal fun LiveGrid(liveAll: List<Item>, groupsAll: Map<String, List<Item>>, f
             PillButton("Suche", icon = AIcon.Edit) { searching = true }
             if (favs.isNotEmpty()) PillButton("Favoriten", icon = AIcon.Star) { searching = false; cat = FAV_CAT }
             PillButton("Mehrfachansicht", icon = AIcon.Layers) { showMulti = true }
-            if (srcNames.size > 1) PillButton(Lang.tr("Quelle") + ": " + (if (srcK < 0) Lang.tr("Alle") else srcNames[srcK]), icon = AIcon.Sliders, raw = true) {
-                LiveSource.k = if (srcK + 1 >= srcNames.size) -1 else srcK + 1
+            if (srcNames.size > 1) PillButton(
+                Lang.tr("Quelle") + ": " + (if (srcK.isEmpty()) Lang.tr("Alle") else srcK.sorted().mapNotNull { srcNames.getOrNull(it) }.joinToString(", ").ifEmpty { Lang.tr("Keine Playlist") }),
+                icon = AIcon.Sliders, raw = true
+            ) {
+                // One press: All -> first playlist -> next -> ... -> All (same as the list view)
+                val cur = if (srcK.size == 1) srcK.first() else -1
+                val next = cur + 1
+                AreaSource.selectSource(ctx, SectionSourceLogic.SECTION_LIVE, if (next >= srcNames.size) -1 else next)
+                // The open category may not exist in the other source: back to the tiles
+                if (cat != FAV_CAT && cat != LiveGridLogic.ALL && cat?.let { ChannelLists.byKey(it) } == null) cat = null
             }
             PillButton("Listenansicht", icon = AIcon.Lists) { General.setLiveGrid(ctx, false) }
         }
