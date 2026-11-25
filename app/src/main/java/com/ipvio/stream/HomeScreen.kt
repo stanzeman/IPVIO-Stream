@@ -65,11 +65,10 @@ private object HomeReturn {
 /** Last adopted genre state and trend list – kept when leaving the home screen. */
 private object HomeVer {
     var value = -1
-    var trend: Set<String> = emptySet()
+    var trend: TrendLogic.Board = TrendLogic.EMPTY
 }
 
 private const val SORT_NEW = 0
-private const val SORT_RATING = 2
 private const val SORT_PLAYLIST = 8
 
 private fun ipvioGroups(list: List<Item>): Map<String, List<Item>> {
@@ -108,10 +107,30 @@ private class HomeData(
     val topM: List<Item>, val topS: List<Item>, val byId: Map<String, Item>, val trendItems: List<Item>,
     val genresOk: Boolean,
     /** Movies/series for the home rows: without adult titles when Parental control > "never on the home pages" is on. */
-    val rowMovies: List<Item> = movies, val rowSeries: List<Item> = series
+    val rowMovies: List<Item> = movies, val rowSeries: List<Item> = series,
+    /** "New titles" (T-066): newest release year first, series by their latest episode. */
+    val newM: List<Item> = emptyList(), val newS: List<Item> = emptyList(),
+    /** "Russian & Kazakh" (T-066): only RU/KZ productions or Russian/Kazakh original language, newest first. */
+    val ruM: List<Item> = emptyList(), val ruS: List<Item> = emptyList()
 )
 
-private fun buildHome(all: List<Item>, ipvioWanted: Boolean, trend: Set<String>, noAdult: Boolean = false): HomeData {
+/** What the tab lists need of a title (T-065, T-066); without metadata only the playlist year is known. */
+private fun listInfo(i: Item): HomeListsLogic.Info {
+    val m = MetaRepo.cached(i)
+    val newest = SeriesAirLogic.newestKey(i.kind == Kind.SERIES, m?.lastAir, m?.year ?: i.year?.toString())
+    return HomeListsLogic.Info(m?.score(), m?.votes ?: 0, newest, m != null && TrendLogic.isLocal(m.lang, m.countries))
+}
+
+private fun trendKey(i: Item): String? = MetaRepo.cached(i)?.takeIf { it.tmdbId > 0 }?.let { TrendLogic.key(it.isTv, it.tmdbId) }
+
+/** Movies and series of the trend board alternately (the big picture takes the first 8 of both). */
+private fun <T> interleave(a: List<T>, b: List<T>): List<T> {
+    val out = ArrayList<T>(a.size + b.size)
+    for (i in 0 until maxOf(a.size, b.size)) { if (i < a.size) out.add(a[i]); if (i < b.size) out.add(b[i]) }
+    return out
+}
+
+private fun buildHome(all: List<Item>, ipvioWanted: Boolean, trend: TrendLogic.Board, noAdult: Boolean = false): HomeData {
     val live = ArrayList<Item>(); val movies0 = ArrayList<Item>(); val series0 = ArrayList<Item>()
     for (i in all) when (i.kind) { Kind.LIVE -> live.add(i); Kind.MOVIE -> movies0.add(i); Kind.SERIES -> series0.add(i) }
     // Show the same movie in several versions (HD, 4K, …) only once; the version is chosen on the detail page (source)
@@ -126,13 +145,23 @@ private fun buildHome(all: List<Item>, ipvioWanted: Boolean, trend: Set<String>,
     // Home rows never show adult titles if wanted; categories, "All movies" and Live TV keep them (whoever looks finds them there)
     val rm = if (noAdult) movies.filterNot { ParentalLogic.isAdult(it.group, it.title) } else movies
     val rs = if (noAdult) series.filterNot { ParentalLogic.isAdult(it.group, it.title) } else series
-    val trendItems = if (trend.isEmpty()) emptyList() else (rm.asSequence() + rs.asSequence()).filter { Trending.norm(it.title) in trend }.toList()
+    // Metadata per title once (the lists below ask several times)
+    val infos = HashMap<String, HomeListsLogic.Info>(rm.size + rs.size)
+    val info: (Item) -> HomeListsLogic.Info = { i -> infos.getOrPut(i.id) { listInfo(i) } }
+    val local: (Item) -> Boolean = { info(it).local }
+    val trendM = TrendLogic.rank(rm, trend, ::trendKey, { it.title }, local, 20)
+    val trendS = TrendLogic.rank(rs, trend, ::trendKey, { it.title }, local, 20)
+    val trendItems = interleave(trendM, trendS)
+    val nowYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
     val rowMP = if (rm === movies) movieP else providerGroups(rm)
     val rowSP = if (rs === series) seriesP else providerGroups(rs)
     return HomeData(
         live, movies, series, providerGroups(live), movieP, seriesP,
         if (ipvio) ipvioGroups(rm) else rowMP, if (ipvio) ipvioGroups(rs) else rowSP,
-        topRated(rm), topRated(rs), all.associateBy { it.id }, trendItems, genresOk, rm, rs
+        HomeListsLogic.popularNew(rm, info, nowYear), HomeListsLogic.popularNew(rs, info, nowYear),
+        all.associateBy { it.id }, trendItems, genresOk, rm, rs,
+        HomeListsLogic.newestFirst(rm, info), HomeListsLogic.newestFirst(rs, info),
+        HomeListsLogic.localNewest(rm, info), HomeListsLogic.localNewest(rs, info)
     )
 }
 
@@ -157,7 +186,7 @@ private fun keepLiveLists(d: HomeData, prev: HomeData?): HomeData {
     val liveP = if (d.liveP.size == prev.liveP.size && d.liveP.keys.zip(prev.liveP.keys).all { (a, b) -> a == b } &&
         d.liveP.all { (k, l) -> sameItems(l, prev.liveP[k]) }) prev.liveP else d.liveP
     if (live === d.live && liveP === d.liveP) return d
-    return HomeData(live, d.movies, d.series, liveP, d.movieP, d.seriesP, d.movieG, d.seriesG, d.topM, d.topS, d.byId, d.trendItems, d.genresOk, d.rowMovies, d.rowSeries)
+    return HomeData(live, d.movies, d.series, liveP, d.movieP, d.seriesP, d.movieG, d.seriesG, d.topM, d.topS, d.byId, d.trendItems, d.genresOk, d.rowMovies, d.rowSeries, d.newM, d.newS, d.ruM, d.ruS)
 }
 
 private fun sameItems(a: List<Item>, b: List<Item>?): Boolean {
@@ -183,13 +212,13 @@ private object HomeCache {
     private var want = false
     private var noAdult = false
     private var ver = -1
-    private var trend: Set<String>? = null
+    private var trend: TrendLogic.Board? = null
     private var data: HomeData? = null
 
-    @Synchronized fun get(all: List<Item>, order: Map<String, Int>, want: Boolean, ver: Int, trend: Set<String>, noAdult: Boolean): HomeData? =
+    @Synchronized fun get(all: List<Item>, order: Map<String, Int>, want: Boolean, ver: Int, trend: TrendLogic.Board, noAdult: Boolean): HomeData? =
         if (all === this.all && order === this.order && want == this.want && ver == this.ver && trend === this.trend && noAdult == this.noAdult) data else null
 
-    @Synchronized fun put(all: List<Item>, order: Map<String, Int>, want: Boolean, ver: Int, trend: Set<String>, noAdult: Boolean, d: HomeData) {
+    @Synchronized fun put(all: List<Item>, order: Map<String, Int>, want: Boolean, ver: Int, trend: TrendLogic.Board, noAdult: Boolean, d: HomeData) {
         this.all = all; this.order = order; this.want = want; this.ver = ver; this.trend = trend; this.noAdult = noAdult; data = d
     }
 
@@ -201,13 +230,6 @@ private val EMPTY_HOME = HomeData(
     emptyList(), emptyList(), emptyList(), emptyMap(), emptyMap(), emptyMap(), emptyMap(), emptyMap(),
     emptyList(), emptyList(), emptyMap(), emptyList(), false
 )
-
-private fun topRated(list: List<Item>): List<Item> =
-    list.mapNotNull { i ->
-        val m = MetaRepo.cached(i)
-        val sc = m?.score()
-        if (m != null && (m.votes >= 300 || m.tmdbId <= 0) && sc != null) i to sc else null
-    }.sortedByDescending { it.second }.map { it.first }
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -232,7 +254,7 @@ fun HomeScreen(
     var ver by remember { mutableIntStateOf(HomeVer.value.takeIf { it >= 0 } ?: Classifier.version) }
     LaunchedEffect(Unit) { while (true) { delay(45_000); if (ver != Classifier.version) { ver = Classifier.version; HomeVer.value = ver } } }
     var trend by remember { mutableStateOf(HomeVer.trend) }
-    LaunchedEffect(all.isNotEmpty()) { if (all.isNotEmpty()) { trend = Trending.titles(); HomeVer.trend = trend } }
+    LaunchedEffect(all.isNotEmpty()) { if (all.isNotEmpty()) { trend = Trending.board(ctx); HomeVer.trend = trend } }
     val wantIpvio = AppSettings.ipvioFilter
     val noAdult = Parental.adultOffHome
     // Private categories (T-028) change the rows too: their version is part of the cache key
@@ -281,7 +303,9 @@ fun HomeScreen(
     val newSeries = remember(rowSeries) { rowSeries.takeLast(40).reversed() }
     val histTop = remember(histHome) { histHome.take(30) }
     val trendItems = data.trendItems
-    val trendTop = remember(trendItems) { trendItems.take(10) }
+    // "Top 10 today" (T-064): one row each for movies and series
+    val trendMovies = remember(trendItems) { trendItems.filter { it.kind == Kind.MOVIE } }
+    val trendSeries = remember(trendItems) { trendItems.filter { it.kind == Kind.SERIES } }
     val wlVod = remember(watchHome) { watchHome.filter { it.kind != Kind.LIVE } }
     // Live TV opens faster: genres and quality bundling of all channels are prepared in the background (both keep their result)
     LaunchedEffect(live) {
@@ -338,6 +362,8 @@ fun HomeScreen(
     val isVod = tab == 1 || tab == 2
     val vodBase = if (tab == 1) movies else series
     val vodTop = if (tab == 1) topM else topS
+    val vodNewest = if (tab == 1) data.newM else data.newS
+    val vodLocal = if (tab == 1) data.ruM else data.ruS
     val vodNoun = if (tab == 1) "Filme" else "Serien"
     val openCats: () -> Unit = {
         scope.launch {
@@ -383,8 +409,10 @@ fun HomeScreen(
     }
     val navTabs = if (!isVod) emptyList() else listOf(
         HeaderTab("Kategorien", AIcon.Categories, "tb:cats$tab") { openCats() },
-        HeaderTab("Top bewertet", AIcon.Star, "tb:top$tab") { onBrowse(BrowseReq("Top bewertet · $vodNoun", vodTop, SORT_RATING)) },
+        HeaderTab("Beliebt & neu", AIcon.Star, "tb:top$tab") { onBrowse(BrowseReq("Beliebt & neu · $vodNoun", vodTop, SORT_PLAYLIST)) },
+        HeaderTab("Neue Titel", AIcon.Pulse, "tb:newt$tab") { onBrowse(BrowseReq("Neue Titel · $vodNoun", vodNewest, SORT_PLAYLIST)) },
         HeaderTab("Neu hinzugefügt", AIcon.Sparkle, "tb:new$tab") { onBrowse(BrowseReq("Neu hinzugefügt · $vodNoun", vodBase, SORT_NEW)) },
+        HeaderTab("Russisch & Kasachisch", AIcon.Globe, "tb:ru$tab") { onBrowse(BrowseReq("Russisch & Kasachisch · $vodNoun", vodLocal, SORT_PLAYLIST)) },
         HeaderTab("Alle $vodNoun", AIcon.Grid, "tb:all$tab") { onBrowse(BrowseReq("Alle $vodNoun", vodBase, SORT_NEW)) }
     ) + importedTabs.map { (src, l, id) -> HeaderTab(src, AIcon.Download, id) { onBrowse(BrowseReq("$src · $vodNoun", l, SORT_NEW)) } }
     var inHeader by remember { mutableStateOf(false) }
@@ -681,9 +709,14 @@ fun HomeScreen(
                                     "favch" -> { if (favLiveHome.isNotEmpty()) item(key = "favch") { ItemsRow("Meine Sender", favLiveHome, cardW, onOpen) { onTab(3) } } }
                                     "chnow" -> { if (nowChannels.isNotEmpty()) item(key = "chnow") { ChannelNowRow("Live TV", nowChannels, onOpen) { onTab(3) } } }
                                     // Top 10 always as whole covers (independent of the picture setting)
-                                    "trend" -> { if (trendItems.size >= 3) item(key = "trend") {
-                                        ItemsRow("Top 10 heute", trendTop, cardW, onOpen, style = CARD_TOP10) { onBrowse(BrowseReq("Im Trend", trendItems, SORT_PLAYLIST)) }
-                                    } }
+                                    "trend" -> {
+                                        if (trendMovies.size >= 3) item(key = "trend") {
+                                            ItemsRow("Top 10 Filme heute", trendMovies.take(10), cardW, onOpen, style = CARD_TOP10) { onBrowse(BrowseReq("Im Trend · Filme", trendMovies, SORT_PLAYLIST)) }
+                                        }
+                                        if (trendSeries.size >= 3) item(key = "trends") {
+                                            ItemsRow("Top 10 Serien heute", trendSeries.take(10), cardW, onOpen, style = CARD_TOP10) { onBrowse(BrowseReq("Im Trend · Serien", trendSeries, SORT_PLAYLIST)) }
+                                        }
+                                    }
                                     "because" -> { because?.let { (src, l) ->
                                         item(key = "because") { ItemsRow("Weil du „" + src.title + "“ geschaut hast", l, cardW, onOpen) { onBrowse(BrowseReq("Ähnlich wie " + src.title, l, SORT_PLAYLIST)) } }
                                     } }
@@ -693,13 +726,13 @@ fun HomeScreen(
                                         ItemsRow("Neu hinzugefügt · Filme", newMovies, cardW, onOpen) { onBrowse(BrowseReq("Neu hinzugefügt · Filme", rowMovies, SORT_NEW)) }
                                     } }
                                     "topm" -> { if (topM.size >= 8) item(key = "topm") {
-                                        ItemsRow("Top bewertet · Filme", topM, cardW, onOpen) { onBrowse(BrowseReq("Top bewertet · Filme", topM, SORT_RATING)) }
+                                        ItemsRow("Beliebt & neu · Filme", topM, cardW, onOpen) { onBrowse(BrowseReq("Beliebt & neu · Filme", topM, SORT_PLAYLIST)) }
                                     } }
                                     "news" -> { if (rowSeries.isNotEmpty()) item(key = "news") {
                                         ItemsRow("Neu hinzugefügt · Serien", newSeries, cardW, onOpen) { onBrowse(BrowseReq("Neu hinzugefügt · Serien", rowSeries, SORT_NEW)) }
                                     } }
                                     "tops" -> { if (topS.size >= 8) item(key = "tops") {
-                                        ItemsRow("Top bewertet · Serien", topS, cardW, onOpen) { onBrowse(BrowseReq("Top bewertet · Serien", topS, SORT_RATING)) }
+                                        ItemsRow("Beliebt & neu · Serien", topS, cardW, onOpen) { onBrowse(BrowseReq("Beliebt & neu · Serien", topS, SORT_PLAYLIST)) }
                                     } }
                                     "sg" -> { seriesG.entries.take(3).forEach { (g, l) ->
                                         item(key = "s$g") { ItemsRow("Serien · $g", l, cardW, onOpen) { onBrowse(BrowseReq("Serien · $g", l, SORT_NEW)) } }
@@ -729,17 +762,19 @@ fun HomeScreen(
                             val groups = if (isM) movieG else seriesG
                             if (ready.isNotEmpty()) item(key = "hero$tab") { Hero(ready.toList(), heroH, false, onOpen, onPlayNow, header, { heroScroll(states[tab]) }) { scope.launch { states[tab].animateScrollToItem(0) } } }
                             else item(key = "top$tab") { header(Modifier) }
-                            // Popular (trending, otherwise top rated) directly under the big picture. First row:
+                            // "Top 10 today" (otherwise "Popular & new") directly under the big picture. First row:
                             // "Show all" up = profile at the top right, left = "To list" in the picture
                             val tt = trendK
-                            val pop = if (tt.size >= 5) tt else top
+                            val isTrend = tt.size >= 3
+                            val pop = if (isTrend) tt else top
+                            val popTitle = if (isTrend) "Top 10 heute" else "Beliebt & neu"
                             if (pop.size >= 3) item(key = "pop$tab") {
-                                ItemsRow(if (isM) "Beliebte Filme" else "Beliebte Serien", pop, cardW, onOpen,
+                                ItemsRow(popTitle, if (isTrend) pop.take(10) else pop, cardW, onOpen, style = if (isTrend) CARD_TOP10 else -1,
                                     upReq = HeaderFocus.profile, leftReq = if (ready.isNotEmpty()) HeroFocus.second else null) {
-                                    onBrowse(BrowseReq((if (isM) "Beliebte Filme" else "Beliebte Serien"), pop, SORT_PLAYLIST))
+                                    onBrowse(BrowseReq(if (isTrend) "Im Trend · $noun" else "Beliebt & neu · $noun", pop, SORT_PLAYLIST))
                                 }
                             }
-                            if (base.isNotEmpty() && ready.isEmpty() && pop.size < 3) item(key = "hint$tab") { EmptyHint("Oben findest du alle $noun, Neuheiten, Top bewertet und Kategorien.") }
+                            if (base.isNotEmpty() && ready.isEmpty() && pop.size < 3) item(key = "hint$tab") { EmptyHint("Oben findest du alle $noun, Neuheiten und Kategorien.") }
                             val rl = resumeK
                             if (rl.isNotEmpty()) item(key = "res$tab") { ResumeRow(rl, cardW, onResume) }
                             val wl = watchK
@@ -750,8 +785,12 @@ fun HomeScreen(
                                 item { EmptyHint("Keine $noun in dieser Playlist") }
                                 item { EmptyHint(CONTENT_MODE_HINT.format(if (isM) "Filme" else "Serien", "Nur Live TV")) }
                             }
+                            val newest = if (isM) data.newM else data.newS
+                            if (newest.size >= 3) item(key = "newt$tab") { ItemsRow("Neue Titel", newest.take(40), cardW, onOpen) { onBrowse(BrowseReq("Neue Titel · $noun", newest, SORT_PLAYLIST)) } }
                             if (base.isNotEmpty() && (if (isM) newMovies else newSeries).isNotEmpty()) item(key = "new$tab") { ItemsRow("Neu hinzugefügt", if (isM) newMovies else newSeries, cardW, onOpen) { onBrowse(BrowseReq("Neu hinzugefügt · $noun", if (isM) rowMovies else rowSeries, SORT_NEW)) } }
-                            if (top.size >= 8) item(key = "best$tab") { ItemsRow("Top bewertet", top, cardW, onOpen) { onBrowse(BrowseReq("Top bewertet · $noun", top, SORT_RATING)) } }
+                            val loc = if (isM) data.ruM else data.ruS
+                            if (loc.size >= 3) item(key = "ru$tab") { ItemsRow("Russisch & Kasachisch", loc.take(40), cardW, onOpen) { onBrowse(BrowseReq("Russisch & Kasachisch · $noun", loc, SORT_PLAYLIST)) } }
+                            if (pop !== top && top.size >= 8) item(key = "best$tab") { ItemsRow("Beliebt & neu", top, cardW, onOpen) { onBrowse(BrowseReq("Beliebt & neu · $noun", top, SORT_PLAYLIST)) } }
                             groups.entries.take(12).forEach { (g, l) -> item(key = "G$tab$g") { ItemsRow(g, l, cardW, onOpen) { onBrowse(BrowseReq(g, l, SORT_NEW)) } } }
                             if (groups.size > 12) item { EmptyHint("Weitere Kategorien findest du unter „Kategorien“ oben.") }
 

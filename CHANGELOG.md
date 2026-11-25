@@ -1,6 +1,10 @@
 # Changelog
 
 ## Unreleased
+- Home screen: "Top 10 today" is now two rows, "Top 10 movies today" and "Top 10 series today". Source: worldwide TMDB trends of the day plus popular Russian and Kazakh titles (more weight on both); titles are matched by their TMDB id, not by their name, so Russian titles show up too. Loaded once per day (about 12 requests with a pause, stops on "too many requests"), the last result is kept for up to 7 days. Needs your own TMDB key. Not device tested yet
+- Movies and Series tabs: the first row is "Top 10 today" (falls back to "Popular & new" while no trend list is there). Not device tested yet
+- "Top rated" is replaced by "Popular & new": titles of the last two years (series by their latest episode) by weighted rating and number of votes, filled up with older titles when there are too few. Home rows "Popular & new · Movies" and "Popular & new · Series". Not device tested yet
+- Movies and Series tabs: new rows and buttons at the top "New titles" (newest release year first, series by their latest episode; above "Newly added") and "Russian & Kazakh" (only titles made in Russia or Kazakhstan or in Russian or Kazakh, newest first). Not device tested yet
 - Series: the date of the latest episode is fetched from TMDB in the background (new phase "Series data" after the genre and country detection; one request per series, running series again every 7 days, older ones every 90 days) and when a series is opened. It is the base for "New titles" and "Popular & new". Not device tested yet
 
 ## 1.4.9
