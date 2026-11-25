@@ -6,6 +6,8 @@ The former log is kept unchanged in `docs/tasks/WORK_STATE-history.md`. Do not a
 
 ## Current task
 
+Last update: 2026-11-25. T-070 most watched channels (branch `feat/T-070-top-channels`, based on `my-build` with upstream 1.5.1; first pushed as `feat/T-068-top-channels`, renumbered because upstream uses T-068): see `docs/tasks/T-070-top-channels.md`. JVM tests 13/13 for the new logic. Not built, not device tested. Next: maintainer builds and runs the device test steps; decides whether the watch times go into the backup.
+
 Last update: 2026-11-25. Branch `claude/modest-johnson-415uuv` (from `main` f6270c3). Maintainer's priorities: 1. users see fewer channels, movies and series than the provider sends, and EPG matching; 2. speed (start, screen changes, playlist switch without loading screen).
 
 - T-067 (`docs/tasks/T-067-missing-content-and-epg-matching.md`): same-name series no longer merged (first keeps its ID), partial Xtream `get.php` lists loaded through the API, load report in Settings > Diagnostics > Log, XMLTV matching by normalized ID and channel name.
@@ -87,7 +89,7 @@ The full list with test steps is in `docs/tasks/WORK_STATE-history.md`, section 
 
 ## Task IDs
 
-- Highest ID in `docs/tasks/`: T-068. **Next free ID: T-069** (use `/new-task`, which checks this).
+- Highest ID in `docs/tasks/`: T-070. **Next free ID: T-071** (use `/new-task`, which checks this).
 - IDs used by more than one file: T-009, T-014, T-026, T-027, T-032. The files are not renamed here, because the old log and other task files refer to them by name. Renaming needs a decision.
 
 ## Conventions

@@ -689,6 +689,9 @@ fun PlayerScreen(req: PlayReq, zapList: List<Item>, liveAll: List<Item>, seriesI
         val tick = object : Runnable {
             override fun run() {
                 saveProgress()
+                // Most watched channels (T-070): count playing live time (not archive, not paused or buffering)
+                if (cur.live && cur.archive == null && player.isPlaying) LiveWatch.tick(ctx, cur.itemId, 5)
+                else if (!cur.live || cur.archive != null) LiveWatch.finish(ctx)
                 val nowT = System.currentTimeMillis()
                 if (player.playbackState == Player.STATE_BUFFERING && player.playWhenReady && !pError) {
                     if (bufSince == 0L) bufSince = nowT
@@ -818,6 +821,7 @@ fun PlayerScreen(req: PlayReq, zapList: List<Item>, liveAll: List<Item>, seriesI
             // Detail page remembers the last played episode (also after "Next episode")
             if (!cur.live && cur.archive == null) DetailReturn.set(cur.itemId, cur.season, cur.episode)
             saveProgress()
+            LiveWatch.finish(ctx)
             h.removeCallbacksAndMessages(null)
             player.removeListener(l)
             // Stop first: the sound ends at once, even if the release takes a moment (T-051)
@@ -840,6 +844,7 @@ fun PlayerScreen(req: PlayReq, zapList: List<Item>, liveAll: List<Item>, seriesI
                     resumeAfter = player.playWhenReady
                     player.pause()
                     saveProgress()
+                    LiveWatch.finish(ctx)
                 }
                 Lifecycle.Event.ON_RESUME -> {
                     // Return from standby/other app: if the player hangs after an error, reconnect
