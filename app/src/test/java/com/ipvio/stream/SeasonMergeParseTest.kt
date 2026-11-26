@@ -48,4 +48,36 @@ class SeasonMergeParseTest {
         assertEquals(2, s.first().episodes.size)
         assertEquals(emptyList<Triple<String, String, Int>>(), XtreamLogic.lazyParts(s.first()))
     }
+
+    // T-075: the video portal lists a series once per season, with "Сезон N" in the name
+    private val portal = """
+        #EXTM3U
+        #EXTINF:-1 portal-fid="105740" group-title="сериалы",Люпен. Сезон 1. S01E01
+        portal://7/series/105740.ser
+        #EXTINF:-1 portal-fid="68223" group-title="сериалы",Люпен S01E01
+        portal://7/series/68223.ser
+        #EXTINF:-1 portal-fid="105726" group-title="сериалы",Люпен. Сезон 2. S01E01
+        portal://7/series/105726.ser
+        #EXTINF:-1 portal-fid="93175" group-title="сериалы",Тверская S01E01
+        portal://7/series/93175.ser
+    """.trimIndent()
+
+    @Test fun portal_off_keepsEverySeasonAsItsOwnSeries() {
+        val s = M3uParser.parseLines(portal.lineSequence()).items.filter { it.kind == Kind.SERIES }
+        assertEquals(4, s.size)
+        assertEquals(listOf("portal://7/series/105740.ser"), PortalLogic.lazyUrls(s.first()).map { it.first })
+    }
+
+    @Test fun portal_on_joinsTheSeasonsAndLoadsEachWithItsSeason() {
+        val s = M3uParser.parseLines(portal.lineSequence(), setOf(LangTagLogic.MERGE_SEASONS)).items.filter { it.kind == Kind.SERIES }
+        assertEquals(listOf("Люпен", "Тверская"), s.map { it.title })
+        val lupin = s.first()
+        // "Люпен" without a season and "Люпен. Сезон 1." are two sources of season 1
+        assertEquals(listOf(1, 1, 2), PortalLogic.lazyParts(lupin).map { it.third })
+        assertEquals(
+            setOf("portal://7/series/105740.ser", "portal://7/series/68223.ser", "portal://7/series/105726.ser"),
+            PortalLogic.lazyParts(lupin).map { it.first }.toSet()
+        )
+        assertEquals(listOf(1), PortalLogic.lazyParts(s[1]).map { it.third })
+    }
 }

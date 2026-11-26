@@ -43,7 +43,8 @@ val MENU_LABELS = listOf("Home", "Filme", "Serien", "Live TV", "Suche", "Einstel
 object AppSettings {
     var ipvioFilter by mutableStateOf(false)
     /** #151: Xtream series that a provider lists season by season are shown as one series. Off by default (it changes the series id). */
-    var mergeSeasons by mutableStateOf(false)
+    // T-075: on by default (also combines the seasons of the video portal)
+    var mergeSeasons by mutableStateOf(true)
     var gridCols by mutableIntStateOf(4)
     var gridRows by mutableIntStateOf(3)
     var cardW by mutableIntStateOf(150)
@@ -97,7 +98,7 @@ object AppSettings {
         val p = prefs(c)
         // Default: provider categories; automatic genres only if chosen (setting or view "Categories")
         ipvioFilter = p.getBoolean("ipvio_filter", false)
-        mergeSeasons = p.getBoolean("merge_seasons", false)
+        mergeSeasons = p.getBoolean("merge_seasons", true)
         gridCols = p.getInt("grid_cols", 6).coerceIn(3, 10)
         gridRows = p.getInt("grid_rows", 3).coerceIn(2, 8)
         cardW = p.getInt("card_w", 150).coerceIn(110, 220)

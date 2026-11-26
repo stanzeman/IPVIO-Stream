@@ -30,12 +30,15 @@ object LazySeries {
     /** Forget everything (new playlist loaded). */
     fun clear() = done.clear()
 
-    /** Episodes of a portal series from its placeholder addresses [urls] (address, label); null = no answer or no episodes. */
-    private suspend fun fromPortal(i: Item, urls: List<Pair<String, String>>, fetch: (String) -> List<Episode>?): Item? =
+    /**
+     * Episodes of a portal series from its placeholder addresses [urls] (address, label, season); null = no answer or no
+     * episodes. T-075: a combined series has one placeholder per season; episodes numbered from season 1 move to it.
+     */
+    private suspend fun fromPortal(i: Item, urls: List<Triple<String, String, Int>>, fetch: (String) -> List<Episode>?): Item? =
         withContext(Dispatchers.IO) {
             var eps: List<Episode>? = null
-            for ((url, label) in urls) {
-                val l = fetch(url) ?: continue
+            for ((url, label, season) in urls) {
+                val l = SeasonMergeLogic.remap(fetch(url) ?: continue, season)
                 eps = if (eps == null) l else MultiLogic.mergeEpisodes(eps, l, label.ifBlank { "2" })
             }
             val e = eps ?: return@withContext null
@@ -51,9 +54,9 @@ object LazySeries {
         if (have !== i) return have
         // Stalker portal: seasons and episodes via the portal's API
         val sUrls = StalkerLogic.lazyUrls(i)
-        if (sUrls.isNotEmpty()) return fromPortal(i, sUrls) { StalkerApi.episodeList(it) }
+        if (sUrls.isNotEmpty()) return fromPortal(i, sUrls.map { Triple(it.first, it.second, 1) }) { StalkerApi.episodeList(it) }
         // Key-based video portal (T-051)
-        val pUrls = PortalLogic.lazyUrls(i)
+        val pUrls = PortalLogic.lazyParts(i)
         if (pUrls.isNotEmpty()) return fromPortal(i, pUrls) { PortalApi.episodeList(it) }
         val parts = XtreamLogic.lazyParts(i)
         if (parts.isEmpty()) return i
