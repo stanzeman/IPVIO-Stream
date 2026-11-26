@@ -6,6 +6,8 @@ The former log is kept unchanged in `docs/tasks/WORK_STATE-history.md`. Do not a
 
 ## Current task
 
+Last update: 2026-11-26. T-078 Live TV tiles follow the genre switch (branch `fix/T-078-grid-genre-switch` from `my-build` 1db04c3): see `docs/tasks/T-078-grid-genre-switch.md`. LiveGenreLogicTest 3/3 OK. Not built, not device tested. Next: maintainer builds and runs the test steps.
+
 Last update: 2026-11-26. T-077 "Kids" area (branch `feat/T-077-kids-tab` from `my-build` cb3d0e8): see `docs/tasks/T-077-kids-tab.md`. 805 JVM tests OK. Not built, not device tested. Next: maintainer builds and runs the test steps.
 
 Last update: 2026-11-25. T-070 most watched channels (branch `feat/T-070-top-channels`, based on `my-build` with upstream 1.5.1; first pushed as `feat/T-068-top-channels`, renumbered because upstream uses T-068): see `docs/tasks/T-070-top-channels.md`. JVM tests 13/13 for the new logic. Not built, not device tested. Next: maintainer builds and runs the device test steps; decides whether the watch times go into the backup.

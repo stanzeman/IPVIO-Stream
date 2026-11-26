@@ -80,6 +80,7 @@ internal fun LiveGrid(liveAll: List<Item>, groupsAll: Map<String, List<Item>>, f
     ChannelLists.init(ctx)
     HiddenCats.init(ctx)
     CatOrder.init(ctx)
+    LiveSettings.init(ctx)   // T-078: the switch "Genre categories in Live TV" (#96) also applies to the tiles
     SideEffect { ContentFocus.tab = 3 }
     val byId = remember(live) { lazy { live.associateBy { it.id } } }
     val myLists = ChannelLists.lists.toList()
@@ -95,6 +96,8 @@ internal fun LiveGrid(liveAll: List<Item>, groupsAll: Map<String, List<Item>>, f
     // Category the focus returns to after Back
     var lastCat by remember { mutableStateOf<String?>(null) }
     var backTick by remember { mutableIntStateOf(0) }
+    // T-078: an automatic genre category is open (or restored) while the switch is off: back to the category tiles
+    LaunchedEffect(cat, LiveSettings.genres) { if (!LiveSettings.genres && cat?.let { LiveGenre.isGenreKey(it) } == true) cat = null }
 
     fun labelOf(k: String): String = when {
         k == FAV_CAT -> Lang.tr("Favoriten")
@@ -113,12 +116,12 @@ internal fun LiveGrid(liveAll: List<Item>, groupsAll: Map<String, List<Item>>, f
         }
     }
 
-    val tiles = remember(live, groups, genres, favs, myLists, favCats, HiddenCats.list.toList(), CatOrder.version) {
+    val tiles = remember(live, groups, genres, favs, myLists, favCats, HiddenCats.list.toList(), CatOrder.version, LiveSettings.genres) {
         LiveGridLogic.tiles(
             favs.size,
             myLists.map { LiveGridLogic.Tile(ChannelListLogic.key(it), it.name, ChannelListLogic.resolve(it, byId.value).size) },
             live.size,
-            genres.keys.filter { it !in HiddenCats.list }.map { LiveGridLogic.Tile(it, it, genres[it]?.size ?: 0) },
+            LiveGenreLogic.visible(genres.keys, HiddenCats.list, LiveSettings.genres).map { LiveGridLogic.Tile(it, it, genres[it]?.size ?: 0) },
             favCats.map { LiveGridLogic.Tile(it, it, groups[it]?.size ?: 0) },
             CatOrder.sorted(CatOrder.LIVE, groups.keys.toList()).filter { it !in favCats && it !in HiddenCats.list }.map { LiveGridLogic.Tile(it, it, groups[it]?.size ?: 0) }
         )
