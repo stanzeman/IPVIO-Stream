@@ -75,6 +75,12 @@ object TrendLogic {
      * Key of [Board.titles] (T-073): the kind is part of it, so a series never takes the points of a movie with the same
      * name (the series "Мастер и Маргарита" of 2005 got the points of the movie of 2024).
      */
+    /**
+     * T-079: what a finished trend check ([Trending.verify]) depends on: the board (day, language) and the size of the
+     * playlist. Same key = nothing new to check, e.g. after a return from the player.
+     */
+    fun verifyKey(b: Board, listSize: Int): String = "${b.day}|${b.lang}|${b.focus}|$listSize"
+
     fun titleKey(isTv: Boolean, title: String): String = (if (isTv) "t:" else "m:") + norm(title)
 
     /** Reciprocal-rank fusion: every list adds weight/(K + place) for each of its titles. */
