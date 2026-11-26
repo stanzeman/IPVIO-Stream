@@ -164,6 +164,8 @@ internal fun BlockLayoutPage(ctx: Context, layout: BlockLayout, intro: String) {
 internal fun HomeLayoutPage(ctx: Context) {
     PillButton("Direkt auf der Startseite bearbeiten", light = true, icon = AIcon.Sliders) { HomeEdit.active = true; AppNav.homeSignal++ }
     Hint("Öffnet die echte Startseite mit deinen Titeln. Über jeder Reihe erscheint eine Leiste zum Verschieben und Ein- oder Ausblenden.")
+    // T-076
+    ToggleRow("Zeichentrick und Anime nicht in Top 10 und Großbild", "Zeichentrickfilme, Zeichentrickserien und Anime erscheinen nicht in „Top 10 heute“, „Im Trend“ und im großen Bild oben. In Kategorien, Suche und den anderen Reihen bleiben sie.", AppSettings.trendNoAnimation) { AppSettings.setTrendNoAnimation(ctx, it) }
     BlockLayoutPage(
         ctx, HomeLayout,
         "Oder hier in der Liste: Schalte Reihen und Widgets ein oder aus und schiebe sie mit „Hoch“ und „Runter“ an die Stelle, die du möchtest. Die Änderung gilt sofort."

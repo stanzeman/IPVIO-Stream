@@ -167,4 +167,21 @@ object TrendLogic {
         }
         return out.sortedByDescending { it.second }.take(limit).map { it.first }
     }
+
+    /** Words of a provider category for cartoons or anime (lower case, part of the name), T-076. */
+    private val ANIMATION_GROUPS = listOf(
+        "мульт", "аниме", "anime", "animation", "animated", "cartoon", "zeichentrick", "trickfilm", "animatie", "tekenfilm",
+        "dessins animés", "dessin animé", "dibujos", "animación", "animacion", "animazione", "cartoni", "desenhos", "animação",
+        "kreskówk", "bajk", "crtan", "çizgi", "animasyon", "رسوم متحركة", "أنمي", "动画", "动漫"
+    )
+
+    /**
+     * T-076: a cartoon or anime: TMDB genre 16 ("Animation", anime included) or a provider category named for cartoons or
+     * anime (works before the title has TMDB data, e.g. "мультфильмы", "мультсериалы", "Аниме").
+     */
+    fun isAnimation(genreIds: List<Int>, group: String?): Boolean {
+        if (16 in genreIds) return true
+        val g = group?.lowercase() ?: return false
+        return ANIMATION_GROUPS.any { it in g }
+    }
 }

@@ -166,4 +166,16 @@ class TrendLogicTest {
         val r2 = TrendLogic.rank(listOf(T(null, "Невский"), T(null, "Невский!")), b, true, { it.key }, { MatchLogic.searchTitle(it.title) }, { 1.0 }, 10) { MatchLogic.seasonOf(it.title) }
         assertEquals(listOf("Невский"), r2.map { it.title })
     }
+
+    @Test fun animation_by_tmdb_genre_or_provider_category() {
+        // T-076
+        assertTrue(TrendLogic.isAnimation(listOf(16, 10751), "сериалы"))
+        assertTrue(TrendLogic.isAnimation(emptyList(), "мультфильмы"))
+        assertTrue(TrendLogic.isAnimation(emptyList(), "мультсериалы"))
+        assertTrue(TrendLogic.isAnimation(emptyList(), "Аниме"))
+        assertTrue(TrendLogic.isAnimation(emptyList(), "DE | Zeichentrick"))
+        assertFalse(TrendLogic.isAnimation(listOf(18, 80), "сериалы"))
+        assertFalse(TrendLogic.isAnimation(emptyList(), "фильмы"))
+        assertFalse(TrendLogic.isAnimation(emptyList(), null))
+    }
 }

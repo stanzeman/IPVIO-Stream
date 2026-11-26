@@ -45,6 +45,8 @@ object AppSettings {
     /** #151: Xtream series that a provider lists season by season are shown as one series. Off by default (it changes the series id). */
     // T-075: on by default (also combines the seasons of the video portal)
     var mergeSeasons by mutableStateOf(true)
+    /** T-076: no cartoons and anime in the top lists and the big picture of the home screen. */
+    var trendNoAnimation by mutableStateOf(true)
     var gridCols by mutableIntStateOf(4)
     var gridRows by mutableIntStateOf(3)
     var cardW by mutableIntStateOf(150)
@@ -99,6 +101,7 @@ object AppSettings {
         // Default: provider categories; automatic genres only if chosen (setting or view "Categories")
         ipvioFilter = p.getBoolean("ipvio_filter", false)
         mergeSeasons = p.getBoolean("merge_seasons", true)
+        trendNoAnimation = p.getBoolean("trend_no_animation", true)
         gridCols = p.getInt("grid_cols", 6).coerceIn(3, 10)
         gridRows = p.getInt("grid_rows", 3).coerceIn(2, 8)
         cardW = p.getInt("card_w", 150).coerceIn(110, 220)
@@ -227,6 +230,11 @@ object AppSettings {
         keys.forEach { e.remove(it) }
         e.apply()
         init(c)
+    }
+
+    fun setTrendNoAnimation(c: Context, v: Boolean) {
+        trendNoAnimation = v
+        prefs(c).edit().putBoolean("trend_no_animation", v).apply()
     }
 
     fun setMergeSeasons(c: Context, v: Boolean) {
