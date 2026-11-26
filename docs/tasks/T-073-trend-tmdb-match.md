@@ -28,6 +28,13 @@ The "Trending · Series" list differed between devices and showed old series:
   to a hit of the same name that `pick` now prefers.
 - `HomeScreen.kt`: runs `verify()` after loading the board; a changed match rebuilds the lists (`Board.renewed()`).
 
+## Follow-up: check again when movies/series arrive
+Device test (office stick): only 4 series. The board was complete (114 series, Russian names), but at the start the
+stored playlist held only Live TV, movies and series of the second playlist came later. `verify()` ran once with the
+Live TV list only and found no candidates. `HomeScreen.kt` now runs `verify()` in its own effect keyed on board day,
+board language and the size of the full list, so it runs again when movies and series arrive (titles already checked
+that day are skipped).
+
 ## Risks
 - Name fallback is stricter: a title with a stored wrong match is missing from the Top 10 until `verify()` has checked it
   (seconds after the home screen opens).

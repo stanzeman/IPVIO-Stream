@@ -254,12 +254,11 @@ fun HomeScreen(
     LaunchedEffect(Unit) { while (true) { delay(45_000); if (ver != Classifier.version) { ver = Classifier.version; HomeVer.value = ver } } }
     var trend by remember { mutableStateOf(HomeVer.trend) }
     // Language of the title info as key: switching to or from Russian loads the trends with or without the RU focus
-    LaunchedEffect(all.isNotEmpty(), General.metaLang) {
-        if (all.isNotEmpty()) {
-            trend = Trending.board(ctx); HomeVer.trend = trend
-            // T-073: check the likely trend titles at TMDB at once; a changed match recomputes the Top 10
-            if (Trending.verify(ctx, allRaw, trend)) { trend = trend.renewed(); HomeVer.trend = trend }
-        }
+    LaunchedEffect(all.isNotEmpty(), General.metaLang) { if (all.isNotEmpty()) { trend = Trending.board(ctx); HomeVer.trend = trend } }
+    // T-073: check the likely trend titles at TMDB; a changed match recomputes the Top 10. Keyed on the list size too:
+    // at a start the cached playlist may hold only Live TV first, and movies/series arrive later (titles checked once a day)
+    LaunchedEffect(trend.day, trend.lang, allRaw.size) {
+        if (!trend.isEmpty() && allRaw.isNotEmpty() && Trending.verify(ctx, allRaw, trend)) { trend = trend.renewed(); HomeVer.trend = trend }
     }
     val wantIpvio = AppSettings.ipvioFilter
     val noAdult = Parental.adultOffHome
