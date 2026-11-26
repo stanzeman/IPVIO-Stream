@@ -80,8 +80,8 @@ object Trending {
         MetaRepo.loadIndex(ctx)
         val series = items.filter { it.kind == Kind.SERIES }
         val movies = items.filter { it.kind == Kind.MOVIE }
-        val todo = (TrendLogic.candidates(series, b, true, ::keyOf, { it.title }, MAX_CHECK) +
-            TrendLogic.candidates(movies, b, false, ::keyOf, { it.title }, MAX_CHECK))
+        val todo = (TrendLogic.candidates(series, b, true, ::keyOf, { MatchLogic.searchTitle(it.title) }, MAX_CHECK) +
+            TrendLogic.candidates(movies, b, false, ::keyOf, { MatchLogic.searchTitle(it.title) }, MAX_CHECK))
             .distinctBy { it.mk }.filter { "${b.day}|${it.mk}" !in checked }.take(MAX_CHECK)
         var changed = false
         for (i in todo) {

@@ -148,8 +148,8 @@ private fun buildHome(all: List<Item>, ipvioWanted: Boolean, trend: TrendLogic.B
     val info: (Item) -> HomeListsLogic.Info = { i -> infos.getOrPut(i.id) { listInfo(i) } }
     // Regional extra factor only with the RU focus of the board (T-067)
     val boostOf: (Item) -> Double = { i -> MetaRepo.cached(i)?.let { m -> TrendLogic.boost(trend.focus, m.lang, m.countries) } ?: 1.0 }
-    val trendM = TrendLogic.rank(rm, trend, false, Trending::keyOf, { it.title }, boostOf, 20)
-    val trendS = TrendLogic.rank(rs, trend, true, Trending::keyOf, { it.title }, boostOf, 20)
+    val trendM = TrendLogic.rank(rm, trend, false, Trending::keyOf, { MatchLogic.searchTitle(it.title) }, boostOf, 20)
+    val trendS = TrendLogic.rank(rs, trend, true, Trending::keyOf, { MatchLogic.searchTitle(it.title) }, boostOf, 20) { MatchLogic.seasonOf(it.title) }
     val trendItems = interleave(trendM, trendS)
     val nowYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
     val rowMP = if (rm === movies) movieP else providerGroups(rm)

@@ -38,8 +38,24 @@ object MatchLogic {
     // T-067: country added to tell two series of the same name apart ("The Office (UK)"); TMDB names them without it
     private val COUNTRY_END = Regex("""\s*[\(\[]\s*(?:US|UK|AU|NZ|CA)\s*[\)\]]\s*$""", RegexOption.IGNORE_CASE)
 
+    // T-074: season in the series name ("Маша и Медведь. Сезон 5", "Lupin (Season 2)", "Невский 2 сезон"); TMDB names
+    // the series without it, so the search found nothing and the trend list never matched
+    private val SEASON_END = Regex(
+        """(?iu)[\s.,:;|–—-]*[(\[]?\s*(?:(?:сезон|season|staffel|saison|temporada|stagione|seizoen|sezon)\s*\d{1,2}(?:\s*[-–]\s*\d{1,2})?|\d{1,2}(?:\s*-?(?:й|ый))?\s*(?:сезон|season|staffel))\s*[)\]]?[\s.]*$"""
+    )
+
+    private val SEASON_NUM = Regex("""(?iu)(?:(?:сезон|season|staffel|saison|temporada|stagione|seizoen|sezon)\s*(\d{1,2})|(\d{1,2})(?:\s*-?(?:й|ый))?\s*(?:сезон|season|staffel))""")
+
+    /** Season number in the name ("Невский. Сезон 5" = 5), 0 if the name holds none (T-074). */
+    fun seasonOf(title: String): Int {
+        val m = SEASON_END.find(title.trim()) ?: return 0
+        val n = SEASON_NUM.find(m.value) ?: return 0
+        return (n.groupValues[1].ifEmpty { n.groupValues[2] }).toIntOrNull() ?: 0
+    }
+
     fun searchTitle(title: String): String {
         var t = title.trim().replace(COUNTRY_END, "").ifEmpty { title.trim() }
+        t = t.replace(SEASON_END, "").trim().ifEmpty { t }
         repeat(2) {
             val m = LEAD.find(t) ?: return@repeat
             if (LangTagLogic.detect(m.groupValues[1]) == null) return@repeat
