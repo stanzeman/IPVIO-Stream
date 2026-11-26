@@ -139,6 +139,12 @@ fun MenuIcon(id: Int, color: Color, modifier: Modifier = Modifier) {
                 }
                 drawPath(p, color, style = sw)
             }
+            12 -> { // Kids: smiling face
+                drawCircle(color, radius = .38f * s, center = Offset(.5f * s, .5f * s), style = sw)
+                drawCircle(color, radius = .05f * s, center = Offset(.37f * s, .42f * s))
+                drawCircle(color, radius = .05f * s, center = Offset(.63f * s, .42f * s))
+                drawArc(color, 20f, 140f, false, topLeft = Offset(.3f * s, .4f * s), size = Size(.4f * s, .3f * s), style = sw)
+            }
             else -> {
                 for (y in listOf(.26f, .5f, .74f)) line(.12f, y, .88f, y)
             }

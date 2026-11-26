@@ -5,7 +5,7 @@ package com.ipvio.stream
  * Guarantees: every area occurs exactly once, "Start" (0) and "Settings" (5) can never be hidden.
  */
 object MenuLogic {
-    const val COUNT = 12
+    const val COUNT = 13
     const val HOME = 0
     const val SEARCH = 4
     const val SETTINGS = 5
@@ -19,8 +19,11 @@ object MenuLogic {
     const val SPORT = 10
     /** T-052a: sidebar tab with the downloads (queue, delete). */
     const val DOWNLOADS = 11
+    /** T-077: cartoons and anime (kids area), right under "Series". */
+    const val KIDS = 12
+    const val SERIES = 2
     /** As in the draft: Home, Live TV, movies, series, EPG, favorites, "Meine Liste", (search), settings. */
-    val DEFAULT_ORDER = listOf(0, 3, 1, 2, SPORT, EPG, FAVS, MYLIST, VERLAUF, SEARCH, DOWNLOADS, 5)
+    val DEFAULT_ORDER = listOf(0, 3, 1, 2, KIDS, SPORT, EPG, FAVS, MYLIST, VERLAUF, SEARCH, DOWNLOADS, 5)
     /**
      * Search sits at the top in the header, not in the sidebar: hidden by default.
      * EPG (round 14, user's wish): also hidden – the TV guide is reachable via Live TV.
@@ -32,6 +35,9 @@ object MenuLogic {
         val order = (raw ?: DEFAULT_ORDER.joinToString(",")).split(",").mapNotNull { it.trim().toIntOrNull() }
             .filter { it in 0 until COUNT }.distinct().toMutableList()
         for (id in 0 until COUNT) if (id !in order) {
+            // T-077: the kids area goes right under "Series" (if it is in the order)
+            val ser = order.indexOf(SERIES)
+            if (id == KIDS && ser >= 0) { order.add(ser + 1, id); continue }
             // New area (saved order from before): insert before "Settings", not after
             val s = order.indexOf(SETTINGS)
             if (id >= EPG && s >= 0) order.add(s, id) else order.add(id)

@@ -237,7 +237,9 @@ private fun AppContent() {
     val states = listOf(
         rememberLazyListState(), rememberLazyListState(), rememberLazyListState(),
         rememberLazyListState(), rememberLazyListState(), rememberLazyListState(), rememberLazyListState(),
-        rememberLazyListState(), rememberLazyListState(), rememberLazyListState(), rememberLazyListState()
+        rememberLazyListState(), rememberLazyListState(), rememberLazyListState(), rememberLazyListState(),
+        // T-077: Downloads (11, unused) and Kids (12), so states[tab] exists for every area
+        rememberLazyListState(), rememberLazyListState()
     )
 
     // W-004: "What's new" once after an update to a new version
