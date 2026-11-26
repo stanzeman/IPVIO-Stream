@@ -51,4 +51,18 @@ class MatchLogicTest {
         assertTrue(MatchLogic.seasonsFit(0, 1))     // unknown
         assertTrue(MatchLogic.seasonsFit(3, 0))
     }
+
+    @Test fun originalNameWinsOverTranslatedNameWithMoreVotes() {
+        // T-073: Russian search for "Корни": "Roots" (1977) carries the Russian name, the Russian series (2020) is the original
+        val res = listOf(c(1, "Корни", "Roots", "1977", 900), c(2, "Корни", "Корни", "2020", 40))
+        assertEquals(2, MatchLogic.pick("Корни", null, res)!!.id)
+        assertTrue(MatchLogic.sameOriginal("Корни", "Корни"))
+        assertFalse(MatchLogic.sameOriginal("Корни", "Roots"))
+    }
+
+    @Test fun yearStillComesBeforeOriginalNameForMovies() {
+        val res = listOf(c(1, "Корни", "Roots", "1977", 900), c(2, "Корни", "Корни", "2020", 40))
+        assertEquals(1, MatchLogic.best("Корни", 1977, res)!!.id)
+        assertEquals(2, MatchLogic.best("Корни", 1990, res)!!.id)   // no year fits: original name
+    }
 }

@@ -121,8 +121,6 @@ private fun listInfo(i: Item): HomeListsLogic.Info {
     return HomeListsLogic.Info(m?.score(), m?.votes ?: 0, newest, m != null && TrendLogic.isLocal(m.lang, m.countries))
 }
 
-private fun trendKey(i: Item): String? = MetaRepo.cached(i)?.takeIf { it.tmdbId > 0 }?.let { TrendLogic.key(it.isTv, it.tmdbId) }
-
 /** Movies and series of the trend board alternately (the big picture takes the first 8 of both). */
 private fun <T> interleave(a: List<T>, b: List<T>): List<T> {
     val out = ArrayList<T>(a.size + b.size)
@@ -150,8 +148,8 @@ private fun buildHome(all: List<Item>, ipvioWanted: Boolean, trend: TrendLogic.B
     val info: (Item) -> HomeListsLogic.Info = { i -> infos.getOrPut(i.id) { listInfo(i) } }
     // Regional extra factor only with the RU focus of the board (T-067)
     val boostOf: (Item) -> Double = { i -> MetaRepo.cached(i)?.let { m -> TrendLogic.boost(trend.focus, m.lang, m.countries) } ?: 1.0 }
-    val trendM = TrendLogic.rank(rm, trend, ::trendKey, { it.title }, boostOf, 20)
-    val trendS = TrendLogic.rank(rs, trend, ::trendKey, { it.title }, boostOf, 20)
+    val trendM = TrendLogic.rank(rm, trend, false, Trending::keyOf, { it.title }, boostOf, 20)
+    val trendS = TrendLogic.rank(rs, trend, true, Trending::keyOf, { it.title }, boostOf, 20)
     val trendItems = interleave(trendM, trendS)
     val nowYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
     val rowMP = if (rm === movies) movieP else providerGroups(rm)
@@ -256,7 +254,13 @@ fun HomeScreen(
     LaunchedEffect(Unit) { while (true) { delay(45_000); if (ver != Classifier.version) { ver = Classifier.version; HomeVer.value = ver } } }
     var trend by remember { mutableStateOf(HomeVer.trend) }
     // Language of the title info as key: switching to or from Russian loads the trends with or without the RU focus
-    LaunchedEffect(all.isNotEmpty(), General.metaLang) { if (all.isNotEmpty()) { trend = Trending.board(ctx); HomeVer.trend = trend } }
+    LaunchedEffect(all.isNotEmpty(), General.metaLang) {
+        if (all.isNotEmpty()) {
+            trend = Trending.board(ctx); HomeVer.trend = trend
+            // T-073: check the likely trend titles at TMDB at once; a changed match recomputes the Top 10
+            if (Trending.verify(ctx, allRaw, trend)) { trend = trend.renewed(); HomeVer.trend = trend }
+        }
+    }
     val wantIpvio = AppSettings.ipvioFilter
     val noAdult = Parental.adultOffHome
     // Private categories (T-028) change the rows too: their version is part of the cache key

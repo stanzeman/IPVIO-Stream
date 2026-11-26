@@ -52,14 +52,30 @@ object MatchLogic {
     /**
      * Best hit: exactly the same name (for movies with a matching year preferred), among several equal ones the one with the most
      * votes. Without a hit of the same name the first TMDB hit (as before).
+     *
+     * T-073: among hits of the same name, one whose ORIGINAL name is the title wins over one that only carries the title as
+     * translation. Searching "Корни" in Russian returns the Russian series "Корни" (2020) and "Roots" (1977, Russian name
+     * "Корни"); without this rule the one with more votes (Roots) won.
      */
     fun pick(title: String, year: Int?, results: List<Candidate>): Candidate? {
         if (results.isEmpty()) return null
         val exact = results.filter { sameTitle(title, it.name, it.original) }
         if (exact.isEmpty()) return results.first()
+        return best(title, year, exact)
+    }
+
+    /** Among hits that all carry the title: matching year (movies), then original name, then most votes. */
+    fun best(title: String, year: Int?, exact: List<Candidate>): Candidate? {
         val y = year?.toString()
         val sameYear = if (y != null) exact.filter { it.year == y } else emptyList()
-        return (sameYear.ifEmpty { exact }).maxByOrNull { it.votes }
+        val pool = sameYear.ifEmpty { exact }
+        return pool.filter { sameOriginal(title, it.original) }.ifEmpty { pool }.maxByOrNull { it.votes }
+    }
+
+    /** The title is the original name of the hit (not only its translation). */
+    fun sameOriginal(title: String, original: String?): Boolean {
+        val n = norm(searchTitle(title))
+        return n.isNotEmpty() && n == norm(original)
     }
 
     /**

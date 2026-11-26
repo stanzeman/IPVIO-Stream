@@ -52,13 +52,17 @@ object TrendLogic {
     class Source(val weight: Double, val keys: List<String>)
 
     /**
-     * Result of one day. [points] per key, [titles] maps normalized titles ([norm]) to a key, for playlist titles whose
-     * TMDB id is not known yet.
+     * Result of one day. [points] per key, [titles] maps title keys ([titleKey]: kind + normalized title) to a key, for
+     * playlist titles whose TMDB id is not known yet. [lang] is the TMDB language the lists were loaded in (T-073), so the
+     * titles carry the names the playlist uses (e.g. Russian) besides the original names.
      */
     class Board(
-        val day: String, val savedAt: Long, val points: Map<String, Double>, val titles: Map<String, String>, val focus: String = ""
+        val day: String, val savedAt: Long, val points: Map<String, Double>, val titles: Map<String, String>, val focus: String = "",
+        val lang: String = ""
     ) {
         fun isEmpty() = points.isEmpty()
+        /** Same content as a new object: the home screen recomputes its lists (it compares the board by identity). */
+        fun renewed() = Board(day, savedAt, points, titles, focus, lang)
     }
 
     val EMPTY = Board("", 0L, emptyMap(), emptyMap())
@@ -66,6 +70,12 @@ object TrendLogic {
     fun norm(s: String): String = s.lowercase().filter { it.isLetterOrDigit() }
 
     fun key(isTv: Boolean, tmdbId: Int): String = (if (isTv) "t" else "m") + tmdbId
+
+    /**
+     * Key of [Board.titles] (T-073): the kind is part of it, so a series never takes the points of a movie with the same
+     * name (the series "Мастер и Маргарита" of 2005 got the points of the movie of 2024).
+     */
+    fun titleKey(isTv: Boolean, title: String): String = (if (isTv) "t:" else "m:") + norm(title)
 
     /** Reciprocal-rank fusion: every list adds weight/(K + place) for each of its titles. */
     fun fuse(sources: List<Source>): Map<String, Double> {
@@ -105,26 +115,52 @@ object TrendLogic {
         }
     }
 
-    /** The saved board is from today and for the same focus: no new request. */
-    fun fresh(b: Board, today: String, focus: String = ""): Boolean = b.day == today && b.focus == focus && !b.isEmpty()
+    /** The saved board is from today, for the same focus and the same TMDB language: no new request. */
+    fun fresh(b: Board, today: String, focus: String = "", lang: String = ""): Boolean =
+        b.day == today && b.focus == focus && b.lang == lang && !b.isEmpty()
 
     /** The saved board may still be shown (TMDB not reachable): not older than [MAX_AGE_MS], clock not gone back. */
     fun usable(b: Board, now: Long): Boolean = !b.isEmpty() && now - b.savedAt in 0..MAX_AGE_MS
 
     /**
-     * Ranks playlist titles: [keyOf] gives the TMDB key (null = unknown), [titleOf] the title for the fallback, [boostOf]
-     * the extra factor (see [boost]). Every key counts once (the first playlist entry wins), best first, at most [limit].
+     * Ranks playlist titles of one kind ([tv] = series): [keyOf] gives the TMDB key (null = unknown), [titleOf] the title for
+     * the fallback, [boostOf] the extra factor (see [boost]). Every key counts once (the first playlist entry wins), best
+     * first, at most [limit].
+     *
+     * T-073: the TMDB number decides. The name counts only while the number is not known yet (see [candidates]), and only
+     * within the same kind. A title whose number is known but not on the board is not in the trend, whatever its name.
      */
     fun <T> rank(
-        items: List<T>, board: Board, keyOf: (T) -> String?, titleOf: (T) -> String, boostOf: (T) -> Double, limit: Int
+        items: List<T>, board: Board, tv: Boolean, keyOf: (T) -> String?, titleOf: (T) -> String, boostOf: (T) -> Double, limit: Int
     ): List<T> {
         if (board.isEmpty() || items.isEmpty()) return emptyList()
         val best = HashMap<String, Pair<T, Double>>()
         for (it in items) {
-            val k = keyOf(it)?.takeIf { k -> board.points.containsKey(k) } ?: board.titles[norm(titleOf(it))] ?: continue
+            val known = keyOf(it)
+            val k = if (known != null) known.takeIf { k -> board.points.containsKey(k) } ?: continue
+                else board.titles[titleKey(tv, titleOf(it))] ?: continue
             val p = (board.points[k] ?: continue) * boostOf(it)
             if (!best.containsKey(k)) best[k] = it to p
         }
         return best.values.sortedByDescending { it.second }.take(limit).map { it.first }
+    }
+
+    /**
+     * Playlist titles to check at TMDB first (T-073): their name matches a trend title of the same kind, but the TMDB
+     * number is not known yet or differs (possibly a wrong match, like "Roots" for the Russian "Корни"). Best trend points
+     * first, at most [limit]. A title whose known number is on the board needs no check.
+     */
+    fun <T> candidates(
+        items: List<T>, board: Board, tv: Boolean, keyOf: (T) -> String?, titleOf: (T) -> String, limit: Int
+    ): List<T> {
+        if (board.isEmpty() || items.isEmpty()) return emptyList()
+        val out = ArrayList<Pair<T, Double>>()
+        for (it in items) {
+            val k = board.titles[titleKey(tv, titleOf(it))] ?: continue
+            val known = keyOf(it)
+            if (known != null && board.points.containsKey(known)) continue
+            out.add(it to (board.points[k] ?: 0.0))
+        }
+        return out.sortedByDescending { it.second }.take(limit).map { it.first }
     }
 }

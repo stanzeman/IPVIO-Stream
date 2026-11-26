@@ -12,8 +12,8 @@ class TrendLogicTest {
     private fun board(points: Map<String, Double>, titles: Map<String, String> = emptyMap()) =
         TrendLogic.Board("2026-11-25", 1_000L, points, titles)
 
-    private fun rank(items: List<T>, b: TrendLogic.Board, limit: Int = 10) =
-        TrendLogic.rank(items, b, { it.key }, { it.title }, { if (it.local) TrendLogic.LOCAL_BOOST else 1.0 }, limit).map { it.title }
+    private fun rank(items: List<T>, b: TrendLogic.Board, limit: Int = 10, tv: Boolean = false) =
+        TrendLogic.rank(items, b, tv, { it.key }, { it.title }, { if (it.local) TrendLogic.LOCAL_BOOST else 1.0 }, limit).map { it.title }
 
     @Test fun fuse_adds_up_titles_in_several_lists_and_weights_russia_higher() {
         val p = TrendLogic.fuse(listOf(
@@ -32,7 +32,7 @@ class TrendLogicTest {
     }
 
     @Test fun rank_orders_by_points_and_matches_by_title_when_id_unknown() {
-        val b = board(mapOf("m1" to 0.03, "m2" to 0.05), mapOf("dune" to "m1"))
+        val b = board(mapOf("m1" to 0.03, "m2" to 0.05), mapOf(TrendLogic.titleKey(false, "Dune") to "m1"))
         val r = rank(listOf(T("m2", "B"), T(null, "Dune!"), T("m9", "X")), b)
         assertEquals(listOf("B", "Dune!"), r)
     }
@@ -108,5 +108,45 @@ class TrendLogicTest {
         assertTrue(TrendLogic.fresh(b, "2026-11-25", TrendLogic.FOCUS_RU))
         assertFalse(TrendLogic.fresh(b, "2026-11-25", ""))
         assertTrue(TrendLogic.usable(b, 2_000L))
+    }
+
+    // T-073: the TMDB number decides, the name only helps while it is unknown
+
+    @Test fun known_number_not_on_board_does_not_fall_back_to_the_name() {
+        // "Roots" (t100) stored for the playlist title "Корни"; the trend series "Корни" is t200
+        val b = board(mapOf("t200" to 0.05), mapOf(TrendLogic.titleKey(true, "Корни") to "t200"))
+        assertTrue(rank(listOf(T("t100", "Корни")), b, tv = true).isEmpty())
+        assertEquals(listOf("Корни"), rank(listOf(T(null, "Корни")), b, tv = true))
+    }
+
+    @Test fun name_fallback_stays_within_the_same_kind() {
+        // The movie "Мастер и Маргарита" (2024) is trending; the series of 2005 with the same name must not take its points
+        val b = board(mapOf("m300" to 0.05), mapOf(TrendLogic.titleKey(false, "Мастер и Маргарита") to "m300"))
+        assertTrue(rank(listOf(T(null, "Мастер и Маргарита")), b, tv = true).isEmpty())
+        assertEquals(listOf("Мастер и Маргарита"), rank(listOf(T(null, "Мастер и Маргарита")), b, tv = false))
+        assertTrue(TrendLogic.titleKey(true, "A") != TrendLogic.titleKey(false, "A"))
+    }
+
+    @Test fun candidates_are_unknown_or_differently_matched_titles_best_first() {
+        val b = board(
+            mapOf("t1" to 0.02, "t2" to 0.05, "t3" to 0.04),
+            mapOf(TrendLogic.titleKey(true, "Корни") to "t2", TrendLogic.titleKey(true, "Люпен") to "t1", TrendLogic.titleKey(true, "Тверская") to "t3")
+        )
+        val items = listOf(T(null, "Люпен"), T("t100", "Корни"), T("t3", "Тверская"), T(null, "Нет в тренде"))
+        val c = TrendLogic.candidates(items, b, true, { it.key }, { it.title }, 10).map { it.title }
+        // "Тверская" already has the trend number: no check; unrelated titles are left out
+        assertEquals(listOf("Корни", "Люпен"), c)
+        assertEquals(1, TrendLogic.candidates(items, b, true, { it.key }, { it.title }, 1).size)
+        assertTrue(TrendLogic.candidates(items, b, false, { it.key }, { it.title }, 10).isEmpty())
+    }
+
+    @Test fun board_of_other_language_is_not_fresh() {
+        val b = TrendLogic.Board("2026-11-25", 1_000L, mapOf("m1" to 1.0), emptyMap(), "", "ru-RU")
+        assertTrue(TrendLogic.fresh(b, "2026-11-25", "", "ru-RU"))
+        assertFalse(TrendLogic.fresh(b, "2026-11-25", "", "de-DE"))
+        // A board saved before T-073 has no language: loaded again once
+        assertFalse(TrendLogic.fresh(board(mapOf("m1" to 1.0)), "2026-11-25", "", "ru-RU"))
+        val r = b.renewed()
+        assertTrue(r !== b && r.points == b.points && r.lang == b.lang)
     }
 }
