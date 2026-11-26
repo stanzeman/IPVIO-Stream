@@ -20,6 +20,12 @@ object Parental {
      */
     var homeHide by mutableStateOf(true)
         private set
+    /** T-080: highest age rating shown in the kids area (-1 = no limit). Default 12. Per profile, behind the PIN. */
+    var kidsAge by mutableIntStateOf(12)
+        private set
+    /** T-080: titles without a known age rating stay out of the kids area. Default off. */
+    var kidsHideUnrated by mutableStateOf(false)
+        private set
     /** Home rows filter adult titles themselves (with [hideAdult] on they are gone from the whole list already). */
     val adultOffHome: Boolean get() = homeHide && !hideAdult
     /** Changes with every switch so filtered lists are recomputed. */
@@ -34,6 +40,8 @@ object Parental {
         val p = prefs(c)
         hideAdult = p.getBoolean("parental_hide", false)
         homeHide = p.getBoolean("parental_home_hide", true)
+        kidsAge = p.getInt("parental_kids_age", 12)
+        kidsHideUnrated = p.getBoolean("parental_kids_unrated", false)
         pinSet = !p.getString("parental_hash", null).isNullOrEmpty()
         unlocked = false
         version++
@@ -48,6 +56,18 @@ object Parental {
     fun setHomeHide(c: Context, v: Boolean) {
         homeHide = v
         prefs(c).edit().putBoolean("parental_home_hide", v).apply()
+        version++
+    }
+
+    fun setKidsAge(c: Context, v: Int) {
+        kidsAge = v
+        prefs(c).edit().putInt("parental_kids_age", v).apply()
+        version++
+    }
+
+    fun setKidsHideUnrated(c: Context, v: Boolean) {
+        kidsHideUnrated = v
+        prefs(c).edit().putBoolean("parental_kids_unrated", v).apply()
         version++
     }
 

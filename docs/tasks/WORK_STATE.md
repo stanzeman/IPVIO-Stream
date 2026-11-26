@@ -6,6 +6,8 @@ The former log is kept unchanged in `docs/tasks/WORK_STATE-history.md`. Do not a
 
 ## Current task
 
+Last update: 2026-11-26. T-080 age limit for the Kids area (branch `feat/T-080-kids-age-limit` from `my-build` f910904): see `docs/tasks/T-080-kids-age-limit.md`. 811 JVM tests OK. Not built, not device tested.
+
 Last update: 2026-11-26. T-079 grey screen when returning to the home screen (branch `fix/T-079-home-return-freeze` from `my-build` d632971): see `docs/tasks/T-079-home-return-freeze.md`. TrendLogicTest + MatchLogicTest 31/31 OK. Not built, not device tested. Next: maintainer builds and runs the test steps.
 
 Last update: 2026-11-26. T-078 Live TV tiles follow the genre switch (branch `fix/T-078-grid-genre-switch` from `my-build` 1db04c3): see `docs/tasks/T-078-grid-genre-switch.md`. LiveGenreLogicTest 3/3 OK. Not built, not device tested. Next: maintainer builds and runs the test steps.

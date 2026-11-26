@@ -43,5 +43,14 @@ Neu hinzugefügt · Kinder¦Newly added · Kids
 Meine Liste · Kinder¦My list · Kids
 Zuletzt geschaut · Kinder¦Recently watched · Kids
 Keine Zeichentrick- oder Anime-Titel in dieser Playlist¦No cartoon or anime titles in this playlist
+Kinder-Tab¦Kids tab
+Altersgrenze im Kinder-Tab¦Age limit in the Kids tab
+FSK 0¦Age 0
+FSK 6¦Age 6
+FSK 12¦Age 12
+FSK 16¦Age 16
+Im Kinder-Tab erscheinen nur Titel bis zu dieser Altersfreigabe. Gibt es mehrere Freigaben (Land der App-Sprache und USA, verschiedene Fassungen oder Staffeln), zählt die strengste. Die Freigaben lädt die App im Hintergrund von TMDB.¦The Kids tab only shows titles up to this age rating. When there are several ratings (country of the app language and the US, different releases or seasons), the strictest counts. The app loads the ratings from TMDB in the background.
+Titel ohne Altersfreigabe ausblenden¦Hide titles without an age rating
+Titel, für die keine Freigabe bekannt ist, erscheinen nicht im Kinder-Tab. Ohne TMDB-Daten bleibt der Tab dann fast leer.¦Titles without a known rating do not appear in the Kids tab. Without TMDB data the tab stays almost empty then.
 Zeichentrickfilme, Zeichentrickserien und Anime erscheinen nicht in „Top 10 heute“, „Im Trend“ und im großen Bild oben. In Kategorien, Suche und den anderen Reihen bleiben sie.¦Animated movies, animated series and anime are left out of "Top 10 today", "Trending" and the big picture at the top. They stay in categories, search and the other rows.
 """

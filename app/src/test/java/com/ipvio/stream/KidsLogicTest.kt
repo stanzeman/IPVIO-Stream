@@ -36,4 +36,14 @@ class KidsLogicTest {
         val r = KidsLogic.heroMix(listOf(listOf("a", "b"), listOf("x", "a"), emptyList(), listOf("z")), { it }, 2)
         assertEquals(listOf("a", "x", "z", "b"), r)
     }
+
+    @Test fun ageLimitKeepsOnlyTitlesUpToTheLimit() {
+        assertTrue(KidsLogic.allowed(18, -1, true))
+        assertTrue(KidsLogic.allowed(12, 12, false))
+        assertFalse(KidsLogic.allowed(18, 12, false))
+        assertFalse(KidsLogic.allowed(14, 12, false))
+        // unknown rating: shown unless hidden on purpose
+        assertTrue(KidsLogic.allowed(AgeRatingLogic.UNKNOWN, 12, false))
+        assertFalse(KidsLogic.allowed(AgeRatingLogic.NOT_ASKED, 6, true))
+    }
 }
