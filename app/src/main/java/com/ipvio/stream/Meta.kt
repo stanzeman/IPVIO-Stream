@@ -380,8 +380,7 @@ object MetaRepo {
         val r = search(i, tv) ?: return null
         return try {
             val cands = candidates(r, tv).filter { it.id != wrongId && MatchLogic.sameTitle(i.title, it.name, it.original) }
-            val y = if (tv) null else i.year?.toString()
-            val best = (cands.filter { y != null && it.year == y }.ifEmpty { cands }).maxByOrNull { it.votes } ?: return null
+            val best = MatchLogic.best(i.title, if (tv) null else i.year, cands) ?: return null
             val all = candidates(r, tv)
             val m = metaOf(r.getJSONObject(all.indexOfFirst { it.id == best.id }), tv)
             memPut(key(i), m)
@@ -389,6 +388,27 @@ object MetaRepo {
             m
         } catch (e: Exception) {
             null
+        }
+    }
+
+    /**
+     * T-073: check of a playlist title that is probably in the trend. Not matched yet: the normal match ([basic]). Matched:
+     * search again and switch only to a hit of the same name that [MatchLogic.pick] prefers now (original name), e.g. the
+     * Russian series "Корни" (2020) instead of "Roots" (1977). One TMDB search at most.
+     */
+    suspend fun trendCheck(ctx: Context, i: Item) {
+        if (!enabled() || i.kind == Kind.LIVE) return
+        val cur = cached(i)?.takeIf { it.tmdbId > 0 } ?: run { basic(ctx, i); return }
+        val tv = i.kind == Kind.SERIES
+        val r = search(i, tv) ?: return
+        try {
+            val cands = candidates(r, tv)
+            val best = MatchLogic.pick(i.title, if (tv) null else i.year, cands) ?: return
+            if (best.id == cur.tmdbId || !MatchLogic.sameTitle(i.title, best.name, best.original)) return
+            val m = metaOf(r.getJSONObject(cands.indexOf(best)), tv)
+            memPut(key(i), m)
+            save(ctx, key(i), m)
+        } catch (e: Exception) {
         }
     }
 
