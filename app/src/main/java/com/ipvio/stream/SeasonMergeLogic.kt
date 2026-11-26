@@ -8,15 +8,19 @@ package com.ipvio.stream
  * "Season 2" alone, "Show2" or "Show 2" are not touched.
  */
 object SeasonMergeLogic {
+    /** Placeholder of a provider series whose seasons may be combined: Xtream (`.xtser`) or the video portal (T-075). */
+    fun mergeable(url: String): Boolean = url.endsWith("." + XtreamLogic.LAZY_EXT) || PortalLogic.seriesRef(url) != null
+
+    // T-075: also Russian "Сезон 5", "Сезон 2-3" (a range keeps its first season), "2 сезон", "2-й сезон", and a dot at the end
+    // ("Маша и Медведь. Сезон 5.") as the video portal names its series
     private val MARK = Regex(
-        """^(.*?\S)[\s._-]+[(\[]?\s*(?:s|season|seasons|staffel|saison|temporada|stagione|sezon|sezona|seizoen|sæson)\s*\.?\s*0*(\d{1,2})\s*[)\]]?$""",
-        RegexOption.IGNORE_CASE
+        """(?iu)^(.*?\S)[\s._-]+[(\[]?\s*(?:(?:s|season|seasons|staffel|saison|temporada|stagione|sezon|sezona|seizoen|sæson|сезон)\s*\.?\s*0*(\d{1,2})(?:\s*[-–]\s*\d{1,2})?|0*(\d{1,2})(?:\s*-?(?:й|ый))?\s*сезон)\s*[)\]]?\s*\.?$"""
     )
 
     /** Title without the season marker and the season number, or null if the title has no marker. */
     fun split(title: String): Pair<String, Int>? {
         val m = MARK.matchEntire(title.trim()) ?: return null
-        val season = m.groupValues[2].toIntOrNull()?.takeIf { it in 1..99 } ?: return null
+        val season = m.groupValues[2].ifEmpty { m.groupValues[3] }.toIntOrNull()?.takeIf { it in 1..99 } ?: return null
         val base = m.groupValues[1].trim().trim('-', '|', ':', '.', '_', ' ')
         if (base.isBlank()) return null
         return base to season

@@ -1408,7 +1408,7 @@ private fun PlaylistPage(ctx: Context, onAdd: () -> Unit, reload: () -> Unit, on
     SectionTitle("Sprachen der Inhalte")
     Hint("Which languages are loaded, and which groups and categories are hidden, is set on the page Genres & categories.")
     SectionTitle("Serien")
-    ToggleRow("Staffeln zusammenfassen", "Manche Anbieter führen jede Staffel als eigene Serie („Show S01“, „Show S02“). Ein: diese Staffeln erscheinen als eine Serie. Gilt für Xtream-Playlists. Verlauf und „Meine Liste“ dieser Serien beginnen neu; die alten Einträge bleiben erhalten, wenn du es wieder ausschaltest.", AppSettings.mergeSeasons) {
+    ToggleRow("Staffeln zusammenfassen", "Manche Anbieter führen jede Staffel als eigene Serie („Show S01“, „Show S02“, „Сезон 5“). Ein: diese Staffeln erscheinen als eine Serie. Gilt für Xtream-Playlists und Video-Portale. Verlauf und „Meine Liste“ dieser Serien beginnen neu; die alten Einträge bleiben erhalten, wenn du es wieder ausschaltest.", AppSettings.mergeSeasons) {
         AppSettings.setMergeSeasons(ctx, it)
         LangFilter.setAndApply(ctx, LangFilter.hidden)   // read the stored list again with the new option
     }

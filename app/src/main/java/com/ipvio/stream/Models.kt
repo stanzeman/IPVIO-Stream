@@ -513,7 +513,7 @@ object M3uParser {
                     var season = m?.groupValues?.get(2)?.toIntOrNull() ?: 1
                     // #151: a provider series that is one season of a show ("Show S02") joins the other seasons of that show
                     var seasonOf = false
-                    if (mergeSeasons && e.url.endsWith("." + XtreamLogic.LAZY_EXT)) {
+                    if (mergeSeasons && SeasonMergeLogic.mergeable(e.url)) {
                         SeasonMergeLogic.split(cleaned)?.let { (b, s) -> cleaned = b; season = s; seasonOf = true }
                     }
                     val base = cleaned.lowercase()

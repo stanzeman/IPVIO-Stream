@@ -234,12 +234,24 @@ object PortalLogic {
     }
 
     /** Placeholder addresses of a series (several playlists shown at once give several). Empty = real episodes. */
-    fun lazyUrls(i: Item): List<Pair<String, String>> {
-        if (i.kind != Kind.SERIES || i.episodes.size != 1) return emptyList()
-        val e = i.episodes[0]
-        val vs = e.variants.ifEmpty { listOf(Variant(e.url, "", e.quality, null)) }
-        if (vs.any { seriesRef(it.url) == null }) return emptyList()
-        return vs.map { it.url to it.label }
+    fun lazyUrls(i: Item): List<Pair<String, String>> = lazyParts(i).map { it.first to it.second }
+
+    /**
+     * Placeholders with their season (T-075): a series whose seasons were combined ("Combine seasons") has one placeholder
+     * per season, otherwise one (season 1). Empty = real episodes.
+     */
+    fun lazyParts(i: Item): List<Triple<String, String, Int>> {
+        if (i.kind != Kind.SERIES || i.episodes.isEmpty()) return emptyList()
+        // Cheap check first (runs for every series card)
+        val first = i.episodes[0]
+        if (!(first.variants.firstOrNull()?.url ?: first.url).startsWith("portal://")) return emptyList()
+        val out = ArrayList<Triple<String, String, Int>>()
+        for (e in i.episodes) {
+            val vs = e.variants.ifEmpty { listOf(Variant(e.url, "", e.quality, null)) }
+            if (vs.any { seriesRef(it.url) == null }) return emptyList()
+            for (v in vs) out.add(Triple(v.url, v.label, e.season))
+        }
+        return out
     }
 
     fun isLazy(i: Item): Boolean = lazyUrls(i).isNotEmpty()

@@ -1,6 +1,8 @@
 package com.ipvio.stream
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Test
@@ -52,5 +54,25 @@ class SeasonMergeLogicTest {
         assertSame(mixed, SeasonMergeLogic.remap(mixed, 2))
         val one = listOf(ep(1, 1))
         assertSame(one, SeasonMergeLogic.remap(one, 1))
+    }
+
+    @Test fun splitsRussianSeasonNamesOfTheVideoPortal() {
+        // T-075: names as the video portal lists them
+        assertEquals("Маша и Медведь" to 5, SeasonMergeLogic.split("Маша и Медведь. Сезон 5."))
+        assertEquals("Маша и Медведь" to 2, SeasonMergeLogic.split("Маша и Медведь. Сезон 2-3."))
+        assertEquals("Условный мент" to 3, SeasonMergeLogic.split("Условный мент Сезон 3"))
+        assertEquals("Люпен" to 1, SeasonMergeLogic.split("Люпен. сезон 1"))
+        assertEquals("Невский" to 2, SeasonMergeLogic.split("Невский 2 сезон"))
+        assertEquals("Невский" to 2, SeasonMergeLogic.split("Невский (2-й сезон)"))
+        assertEquals("Невский. Расплата за справедливость" to 6, SeasonMergeLogic.split("Невский. Расплата за справедливость. Сезон 6"))
+        assertNull(SeasonMergeLogic.split("Сезон 5"))
+        assertNull(SeasonMergeLogic.split("Сезон охоты"))
+        assertNull(SeasonMergeLogic.split("Тверская"))
+    }
+
+    @Test fun mergeableOnlyForXtreamAndPortalPlaceholders() {
+        assertTrue(SeasonMergeLogic.mergeable("http://s.tv:80/series/u/p/11.xtser"))
+        assertTrue(SeasonMergeLogic.mergeable("portal://122875526/series/68223.ser"))
+        assertFalse(SeasonMergeLogic.mergeable("http://s.tv/series/u/p/1.mkv"))
     }
 }
