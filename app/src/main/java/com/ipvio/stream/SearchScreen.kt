@@ -33,6 +33,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -653,6 +654,7 @@ private fun HeroButton(label: String, icon: AIcon, modifier: Modifier = Modifier
 @Composable
 private fun SearchRowHeader(title: String, count: Int, headerReq: FocusRequester, firstCard: FocusRequester, rowState: androidx.compose.foundation.lazy.LazyListState, onAll: () -> Unit) {
     val sc = rememberCoroutineScope()
+    val fm = androidx.compose.ui.platform.LocalFocusManager.current
     val key = NavState.tab.toString() + "|" + title
     LaunchedEffect(Unit) {
         if (PillMemory.key == key) {
@@ -672,10 +674,11 @@ private fun SearchRowHeader(title: String, count: Int, headerReq: FocusRequester
             if (ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionDown) {
                 // First card not in view (row shifted sideways) or not yet composed: first to the start, then highlight.
                 // Before, the focus got stuck here because the failure was swallowed.
-                if (runCatching { firstCard.requestFocus() }.isFailure) sc.launch {
+                // A failed request returns false (no exception); then scroll, retry, else move down normally.
+                if (!firstCard.tryFocus()) sc.launch {
                     rowState.scrollToItem(0)
                     repeat(3) { withFrameNanos { } }
-                    runCatching { firstCard.requestFocus() }
+                    if (!firstCard.tryFocus()) fm.moveFocus(FocusDirection.Down)
                 }
                 true
             } else false

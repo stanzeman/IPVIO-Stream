@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Fix: on the home screen and in the search, the highlight could get stuck on "Show all" of a row; Down did nothing. Now Down goes to the first card of the row (the row scrolls to its start), or further down if that is not possible. Not built with Gradle, not device tested yet
 - Fix: after leaving a movie, a TV channel or a movie detail page the screen could stay grey for a few seconds (most visible on slow Fire TV sticks with a large playlist). The check of the trend titles at TMDB now runs only once per day and list, and in the background. Not built with Gradle, not device tested yet
 - Fix: Live TV as tiles now follows the switch "Genre categories in Live TV" (Settings > Live TV). With it off, the automatic tiles "Sports", "Movies", "Documentaries", "Kids", "News" and "Music" no longer show before the provider's categories; before, only the list view followed it. Not built with Gradle, not device tested yet
 - New menu area "Kids" under "Series": cartoons and anime, built like the Movies and Series tabs. Big picture, rows "Top animated movies", "Top animated series", "Top anime movies", "Top anime series", continue watching, my list and recently watched with only these titles, and tabs "All movies", "All series", "All anime" and "Newly added". Titles come from TMDB genre "Animation" or a cartoon/anime category of the provider; anime = anime category or Japanese animation. Adult titles never show here. Can be hidden in Settings > Menu. Not built with Gradle, not device tested yet
