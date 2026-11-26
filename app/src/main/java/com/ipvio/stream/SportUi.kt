@@ -142,7 +142,7 @@ internal fun HubPageFrame(
         val backReq = remember { FocusRequester() }
         LaunchedEffect(Unit) {
             delay(60)
-            if (runCatching { first.requestFocus() }.isFailure) runCatching { backReq.requestFocus() }
+            if (!first.tryFocus()) backReq.tryFocus()
         }
         Column(
             Modifier.fillMaxSize().background(Bg).padding(horizontal = DS.PageX, vertical = DS.PageY),

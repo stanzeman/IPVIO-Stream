@@ -94,6 +94,12 @@ object AppNav {
     @Volatile var openGuide = false
 }
 
+/**
+ * Requests focus and reports whether it worked. Current Compose no longer throws when the requester is not attached
+ * (target not composed); it only returns false. Checking for an exception alone missed that case.
+ */
+fun FocusRequester.tryFocus(): Boolean = runCatching { requestFocus() }.getOrDefault(false)
+
 object RowStates {
     private val m = HashMap<String, LazyListState>()
     fun get(k: String): LazyListState = m.getOrPut(k) { LazyListState() }

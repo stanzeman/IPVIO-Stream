@@ -281,11 +281,12 @@ fun RowTitle(
                         if (ev.type != KeyEventType.KeyDown) false
                         else if (firstCard != null && ev.key == Key.DirectionDown) {
                             // The row is shifted under the highlight while paging: then the first card is not composed and the
-                            // focus request fails. This used to leave you stuck on "Show all" ("Down" had no effect).
-                            if (runCatching { firstCard.requestFocus() }.isFailure) scope.launch {
+                            // focus request fails (returns false, no exception). This used to leave you stuck on "Show all"
+                            // ("Down" had no effect). Scroll to the start and retry; if that fails too, move down normally.
+                            if (!firstCard.tryFocus()) scope.launch {
                                 rowState?.scrollToItem(0)
                                 repeat(3) { withFrameNanos { } }
-                                runCatching { firstCard.requestFocus() }
+                                if (!firstCard.tryFocus()) fm.moveFocus(FocusDirection.Down)
                             }
                             true
                         }
