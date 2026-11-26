@@ -128,7 +128,10 @@ private fun <T> interleave(a: List<T>, b: List<T>): List<T> {
     return out
 }
 
-private fun buildHome(all: List<Item>, ipvioWanted: Boolean, trend: TrendLogic.Board, noAdult: Boolean = false): HomeData {
+/** T-076: animated movie/series or anime (TMDB genre "Animation" or a cartoon/anime category of the provider). */
+private fun isAnimation(i: Item): Boolean = TrendLogic.isAnimation(MetaRepo.cached(i)?.genreIds ?: emptyList(), i.group)
+
+private fun buildHome(all: List<Item>, ipvioWanted: Boolean, trend: TrendLogic.Board, noAdult: Boolean = false, noAnim: Boolean = false): HomeData {
     val live = ArrayList<Item>(); val movies0 = ArrayList<Item>(); val series0 = ArrayList<Item>()
     for (i in all) when (i.kind) { Kind.LIVE -> live.add(i); Kind.MOVIE -> movies0.add(i); Kind.SERIES -> series0.add(i) }
     // Show the same movie in several versions (HD, 4K, …) only once; the version is chosen on the detail page (source)
@@ -148,8 +151,11 @@ private fun buildHome(all: List<Item>, ipvioWanted: Boolean, trend: TrendLogic.B
     val info: (Item) -> HomeListsLogic.Info = { i -> infos.getOrPut(i.id) { listInfo(i) } }
     // Regional extra factor only with the RU focus of the board (T-067)
     val boostOf: (Item) -> Double = { i -> MetaRepo.cached(i)?.let { m -> TrendLogic.boost(trend.focus, m.lang, m.countries) } ?: 1.0 }
-    val trendM = TrendLogic.rank(rm, trend, false, Trending::keyOf, { MatchLogic.searchTitle(it.title) }, boostOf, 20)
-    val trendS = TrendLogic.rank(rs, trend, true, Trending::keyOf, { MatchLogic.searchTitle(it.title) }, boostOf, 20) { MatchLogic.seasonOf(it.title) }
+    // T-076: cartoons and anime can be left out of the top lists (and so of the big picture)
+    val tm = if (noAnim) rm.filterNot(::isAnimation) else rm
+    val ts = if (noAnim) rs.filterNot(::isAnimation) else rs
+    val trendM = TrendLogic.rank(tm, trend, false, Trending::keyOf, { MatchLogic.searchTitle(it.title) }, boostOf, 20)
+    val trendS = TrendLogic.rank(ts, trend, true, Trending::keyOf, { MatchLogic.searchTitle(it.title) }, boostOf, 20) { MatchLogic.seasonOf(it.title) }
     val trendItems = interleave(trendM, trendS)
     val nowYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
     val rowMP = if (rm === movies) movieP else providerGroups(rm)
@@ -210,15 +216,16 @@ private object HomeCache {
     private var order: Map<String, Int>? = null
     private var want = false
     private var noAdult = false
+    private var noAnim = false
     private var ver = -1
     private var trend: TrendLogic.Board? = null
     private var data: HomeData? = null
 
-    @Synchronized fun get(all: List<Item>, order: Map<String, Int>, want: Boolean, ver: Int, trend: TrendLogic.Board, noAdult: Boolean): HomeData? =
-        if (all === this.all && order === this.order && want == this.want && ver == this.ver && trend === this.trend && noAdult == this.noAdult) data else null
+    @Synchronized fun get(all: List<Item>, order: Map<String, Int>, want: Boolean, ver: Int, trend: TrendLogic.Board, noAdult: Boolean, noAnim: Boolean): HomeData? =
+        if (all === this.all && order === this.order && want == this.want && ver == this.ver && trend === this.trend && noAdult == this.noAdult && noAnim == this.noAnim) data else null
 
-    @Synchronized fun put(all: List<Item>, order: Map<String, Int>, want: Boolean, ver: Int, trend: TrendLogic.Board, noAdult: Boolean, d: HomeData) {
-        this.all = all; this.order = order; this.want = want; this.ver = ver; this.trend = trend; this.noAdult = noAdult; data = d
+    @Synchronized fun put(all: List<Item>, order: Map<String, Int>, want: Boolean, ver: Int, trend: TrendLogic.Board, noAdult: Boolean, noAnim: Boolean, d: HomeData) {
+        this.all = all; this.order = order; this.want = want; this.ver = ver; this.trend = trend; this.noAdult = noAdult; this.noAnim = noAnim; data = d
     }
 
     /** For the wait after a change: better show the previous state than an empty skeleton. */
@@ -262,13 +269,14 @@ fun HomeScreen(
     }
     val wantIpvio = AppSettings.ipvioFilter
     val noAdult = Parental.adultOffHome
+    val noAnim = AppSettings.trendNoAnimation
     // Private categories (T-028) change the rows too: their version is part of the cache key
     val verP = ver * 1000 + PrivateCats.version
-    val cached = HomeCache.get(all, order, wantIpvio, verP, trend, noAdult)
+    val cached = HomeCache.get(all, order, wantIpvio, verP, trend, noAdult, noAnim)
     // When inputs change, the previous state stays visible until the new result (produceState keeps the value)
-    val dataState = produceState(cached, all, order, wantIpvio, verP, trend, noAdult) {
-        value = HomeCache.get(all, order, wantIpvio, verP, trend, noAdult)
-            ?: withContext(Dispatchers.Default) { keepLiveLists(buildHome(all, wantIpvio, trend, noAdult), HomeCache.last()) }.also { HomeCache.put(all, order, wantIpvio, verP, trend, noAdult, it) }
+    val dataState = produceState(cached, all, order, wantIpvio, verP, trend, noAdult, noAnim) {
+        value = HomeCache.get(all, order, wantIpvio, verP, trend, noAdult, noAnim)
+            ?: withContext(Dispatchers.Default) { keepLiveLists(buildHome(all, wantIpvio, trend, noAdult, noAnim), HomeCache.last()) }.also { HomeCache.put(all, order, wantIpvio, verP, trend, noAdult, noAnim, it) }
     }
     // While recomputing: show the previous state, the loading skeleton only the very first time
     val prev = HomeCache.last()
@@ -358,11 +366,14 @@ fun HomeScreen(
     val ready = remember { mutableStateListOf<Item>() }
     // Also use the sizes of movies/series as a key: if the computed home screen arrives only after the list (and without trend titles,
     // i.e. the same empty trend list), the selection stayed empty and the big picture was missing.
-    val candidates = remember(all, trendItems, rowMovies.size, rowSeries.size, tab) {
+    val candidates = remember(all, trendItems, rowMovies.size, rowSeries.size, tab, noAnim) {
+        // T-076: without cartoons and anime also among the newest titles of the big picture (the trend titles are filtered already)
+        val newM = if (noAnim) rowMovies.asReversed().asSequence().filterNot(::isAnimation) else rowMovies.asReversed().asSequence()
+        val newS = if (noAnim) rowSeries.asReversed().asSequence().filterNot(::isAnimation) else rowSeries.asReversed().asSequence()
         when (tab) {
-            1 -> (trendItems.filter { it.kind == Kind.MOVIE }.take(8) + rowMovies.takeLast(30).reversed())
-            2 -> (trendItems.filter { it.kind == Kind.SERIES }.take(8) + rowSeries.takeLast(30).reversed())
-            else -> (trendItems.take(8) + rowMovies.takeLast(25).reversed() + rowSeries.takeLast(15).reversed())
+            1 -> (trendItems.filter { it.kind == Kind.MOVIE }.take(8) + newM.take(30))
+            2 -> (trendItems.filter { it.kind == Kind.SERIES }.take(8) + newS.take(30))
+            else -> (trendItems.take(8) + newM.take(25) + newS.take(15))
         }.distinctBy { it.id }
     }
     // Movies/series: tabs at the top next to the search (instead of the big buttons under the picture)
