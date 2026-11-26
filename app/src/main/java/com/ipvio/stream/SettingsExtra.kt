@@ -67,6 +67,11 @@ fun SourceSettingsSection(ctx: Context) {
         "Liest beim Öffnen eines Titels den Anfang der Datei und zeigt Auflösung, HDR, Tonspuren und Untertitel. Das belegt kurz eine Verbindung zum Anbieter – bei Zugängen mit nur einer Verbindung ausschalten, wenn gleichzeitig etwas anderes läuft.",
         PlaybackPrefs.probe
     ) { PlaybackPrefs.setProbe(ctx, it) }
+    ToggleRow(
+        "Tunneling-Wiedergabe (Live TV)",
+        "Lässt Bild und Ton über einen gemeinsamen Hardware-Pfad des Geräts laufen. Kann bei Sendern helfen, bei denen das Bild ruckelt, während der Ton normal läuft. Wirkt nur, wenn das Gerät es für den Sender kann. Bleibt das Bild schwarz oder läuft der Ton versetzt, schalte es aus. Die Ton-Verzögerung kann dabei wirkungslos sein, und mit einem Zusatzbild ist es aus.",
+        PlaybackPrefs.tunneling
+    ) { PlaybackPrefs.setTunneling(ctx, it) }
     Text("Dieses Gerät: " + DeviceCaps.summary(), color = Muted, fontSize = 15.sp)
     if (PlaybackPrefs.learnedCap in 1..3) Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Gelernt: 4K ruckelte hier mehrmals – Automatik nimmt höchstens Full HD.", color = DS.Gold, fontSize = 15.sp)
@@ -156,5 +161,33 @@ fun CatchupSection() {
             "(Spulen-Tasten = einen Tag zurück/vor). Im Player: „Von Anfang an“ startet die laufende Sendung neu, „Archiv“ listet " +
             "die verpassten Sendungen. Am Ende einer Sendung geht es mit der nächsten weiter, Zurück führt zum Live-Bild. " +
             "Welche Sender ein Archiv haben und wie viele Tage es reicht, bestimmt dein Anbieter."
+    )
+}
+
+/** Sound levelling (T-028): presets plus the three controls of "Custom". Changes apply at once, also during playback. */
+@Composable
+fun AudioLevelSettingsSection(ctx: Context) {
+    val modes = listOf("Aus", "Standard", "Klare Sprache", "Nachtmodus", "Eigene Einstellung")
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        SelectRow("Ton angleichen", modes[AudioLevel.mode], modes, AudioLevel.mode, active = AudioLevel.mode != AudioLevelLogic.MODE_OFF) {
+            AudioLevel.setMode(ctx, it)
+        }
+        if (AudioLevel.mode == AudioLevelLogic.MODE_CUSTOM) {
+            val boosts = AudioLevelLogic.BOOST_DB.map { if (it == 0) "Aus" else "+$it dB" }
+            SelectRow("Maximale Anhebung", boosts[AudioLevel.boost], boosts, AudioLevel.boost) { AudioLevel.setCustom(ctx, boostIdx = it) }
+            val levels = listOf("Aus", "Leicht", "Mittel", "Stark")
+            SelectRow("Dynamik angleichen", levels[AudioLevel.level], levels, AudioLevel.level) { AudioLevel.setCustom(ctx, levelIdx = it) }
+            val speech = AudioLevelLogic.SPEECH_DB.map { if (it == 0) "Aus" else "+$it dB" }
+            SelectRow("Dialoge hervorheben", speech[AudioLevel.speech], speech, AudioLevel.speech) { AudioLevel.setCustom(ctx, speechIdx = it) }
+            SmallPill("Zurücksetzen") { AudioLevel.reset(ctx) }
+        }
+    }
+    Hint(
+        "Viele Sender sind leiser gemischt als YouTube oder Netflix (Fernsehnorm −23 LUFS statt etwa −16). „Standard“ hebt leise " +
+            "Sender automatisch an, gleicht laute und leise Stellen an und macht Dialoge etwas deutlicher – ohne Übersteuern."
+    )
+    Hint(
+        "„Klare Sprache“ hebt Stimmen stärker hervor. „Nachtmodus“ dämpft laute Stellen stark – gut zum leisen Hören. Wird der Ton " +
+            "unverändert an einen Receiver durchgeleitet (Dolby, DTS), bleibt er unbearbeitet."
     )
 }
