@@ -121,12 +121,20 @@ private class KidsLists(
     val movies: List<Item>, val series: List<Item>, val anime: List<Item>,
     val topCartoonM: List<Item>, val topCartoonS: List<Item>, val topAnimeM: List<Item>, val topAnimeS: List<Item>,
     /** All kids titles, newest added first. */
-    val newest: List<Item>, val ids: Set<String>
+    val newest: List<Item>, val ids: Set<String>,
+    /** T-080: kids titles whose age rating is still to be loaded (see [MetaRepo.fetchKidsAge]). */
+    val pending: List<Item> = emptyList()
 ) {
     fun isEmpty() = ids.isEmpty()
+    fun withPending(p: List<Item>) = KidsLists(movies, series, anime, topCartoonM, topCartoonS, topAnimeM, topAnimeS, newest, ids, p)
     companion object {
         val EMPTY = KidsLists(emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptySet())
     }
+}
+
+/** T-080: counts up when loaded age ratings should change the kids lists. */
+private object KidsAgeVer {
+    var v by mutableIntStateOf(0)
 }
 
 private fun kidsKind(i: Item): Int = MetaRepo.cached(i).let { m -> KidsLogic.classify(m?.genreIds ?: emptyList(), m?.lang, i.group) }
@@ -137,12 +145,24 @@ private fun kidsKind(i: Item): Int = MetaRepo.cached(i).let { m -> KidsLogic.cla
  */
 private fun buildKids(
     movies: List<Item>, series: List<Item>, trend: TrendLogic.Board, boostOf: (Item) -> Double,
-    info: (Item) -> HomeListsLogic.Info, nowYear: Int
+    info: (Item) -> HomeListsLogic.Info, nowYear: Int, ageLimit: Int = -1, hideUnrated: Boolean = false
 ): KidsLists {
     val cm = ArrayList<Item>(); val am = ArrayList<Item>(); val cs = ArrayList<Item>(); val asr = ArrayList<Item>()
-    for (i in movies) if (!ParentalLogic.isAdult(i.group, i.title)) when (kidsKind(i)) { KidsLogic.CARTOON -> cm.add(i); KidsLogic.ANIME -> am.add(i) }
-    for (i in series) if (!ParentalLogic.isAdult(i.group, i.title)) when (kidsKind(i)) { KidsLogic.CARTOON -> cs.add(i); KidsLogic.ANIME -> asr.add(i) }
-    if (cm.isEmpty() && am.isEmpty() && cs.isEmpty() && asr.isEmpty()) return KidsLists.EMPTY
+    // T-080: titles whose age rating is still to be loaded (only with an age limit), and the age filter itself
+    val pending = ArrayList<Item>()
+    fun take(i: Item, cartoons: ArrayList<Item>, anime: ArrayList<Item>) {
+        if (ParentalLogic.isAdult(i.group, i.title)) return
+        val k = kidsKind(i)
+        if (k == KidsLogic.NONE) return
+        val m = MetaRepo.cached(i)
+        val am0 = m?.ageMin ?: AgeRatingLogic.NOT_ASKED
+        if (ageLimit >= 0 && am0 == AgeRatingLogic.NOT_ASKED && m != null && m.tmdbId > 0) pending.add(i)
+        if (!KidsLogic.allowed(am0, ageLimit, hideUnrated)) return
+        if (k == KidsLogic.ANIME) anime.add(i) else cartoons.add(i)
+    }
+    for (i in movies) take(i, cm, am)
+    for (i in series) take(i, cs, asr)
+    if (cm.isEmpty() && am.isEmpty() && cs.isEmpty() && asr.isEmpty()) return if (pending.isEmpty()) KidsLists.EMPTY else KidsLists.EMPTY.withPending(pending)
     fun topOf(l: List<Item>, tv: Boolean): List<Item> {
         if (l.isEmpty()) return emptyList()
         val tr = if (tv) TrendLogic.rank(l, trend, true, Trending::keyOf, { MatchLogic.searchTitle(it.title) }, boostOf, 20) { MatchLogic.seasonOf(it.title) }
@@ -153,7 +173,7 @@ private fun buildKids(
     val all = cm + cs + am + asr
     return KidsLists(
         cm, cs, am + asr, topOf(cm, false), topOf(cs, true), topOf(am, false), topOf(asr, true),
-        RecentSortLogic.newestN(all, 40) { it.added }, all.mapTo(HashSet(all.size)) { it.id }
+        RecentSortLogic.newestN(all, 40) { it.added }, all.mapTo(HashSet(all.size)) { it.id }, pending
     )
 }
 
@@ -174,7 +194,7 @@ private fun <T> interleave(a: List<T>, b: List<T>): List<T> {
 /** T-076: animated movie/series or anime (TMDB genre "Animation" or a cartoon/anime category of the provider). */
 private fun isAnimation(i: Item): Boolean = TrendLogic.isAnimation(MetaRepo.cached(i)?.genreIds ?: emptyList(), i.group)
 
-private fun buildHome(all: List<Item>, ipvioWanted: Boolean, trend: TrendLogic.Board, noAdult: Boolean = false, noAnim: Boolean = false): HomeData {
+private fun buildHome(all: List<Item>, ipvioWanted: Boolean, trend: TrendLogic.Board, noAdult: Boolean = false, noAnim: Boolean = false, kidsAge: Int = -1, kidsUnrated: Boolean = false): HomeData {
     val live = ArrayList<Item>(); val movies0 = ArrayList<Item>(); val series0 = ArrayList<Item>()
     for (i in all) when (i.kind) { Kind.LIVE -> live.add(i); Kind.MOVIE -> movies0.add(i); Kind.SERIES -> series0.add(i) }
     // Show the same movie in several versions (HD, 4K, …) only once; the version is chosen on the detail page (source)
@@ -210,7 +230,7 @@ private fun buildHome(all: List<Item>, ipvioWanted: Boolean, trend: TrendLogic.B
         all.associateBy { it.id }, trendItems, genresOk, rm, rs,
         HomeListsLogic.newestFirst(rm, info), HomeListsLogic.newestFirst(rs, info),
         HomeListsLogic.localNewest(rm, info), HomeListsLogic.localNewest(rs, info),
-        buildKids(movies, series, trend, boostOf, info, nowYear)
+        buildKids(movies, series, trend, boostOf, info, nowYear, kidsAge, kidsUnrated)
     )
 }
 
@@ -261,15 +281,16 @@ private object HomeCache {
     private var want = false
     private var noAdult = false
     private var noAnim = false
+    private var kids = 0
     private var ver = -1
     private var trend: TrendLogic.Board? = null
     private var data: HomeData? = null
 
-    @Synchronized fun get(all: List<Item>, order: Map<String, Int>, want: Boolean, ver: Int, trend: TrendLogic.Board, noAdult: Boolean, noAnim: Boolean): HomeData? =
-        if (all === this.all && order === this.order && want == this.want && ver == this.ver && trend === this.trend && noAdult == this.noAdult && noAnim == this.noAnim) data else null
+    @Synchronized fun get(all: List<Item>, order: Map<String, Int>, want: Boolean, ver: Int, trend: TrendLogic.Board, noAdult: Boolean, noAnim: Boolean, kids: Int): HomeData? =
+        if (all === this.all && order === this.order && want == this.want && ver == this.ver && trend === this.trend && noAdult == this.noAdult && noAnim == this.noAnim && kids == this.kids) data else null
 
-    @Synchronized fun put(all: List<Item>, order: Map<String, Int>, want: Boolean, ver: Int, trend: TrendLogic.Board, noAdult: Boolean, noAnim: Boolean, d: HomeData) {
-        this.all = all; this.order = order; this.want = want; this.ver = ver; this.trend = trend; this.noAdult = noAdult; this.noAnim = noAnim; data = d
+    @Synchronized fun put(all: List<Item>, order: Map<String, Int>, want: Boolean, ver: Int, trend: TrendLogic.Board, noAdult: Boolean, noAnim: Boolean, kids: Int, d: HomeData) {
+        this.all = all; this.order = order; this.want = want; this.ver = ver; this.trend = trend; this.noAdult = noAdult; this.noAnim = noAnim; this.kids = kids; data = d
     }
 
     /** For the wait after a change: better show the previous state than an empty skeleton. */
@@ -314,13 +335,17 @@ fun HomeScreen(
     val wantIpvio = AppSettings.ipvioFilter
     val noAdult = Parental.adultOffHome
     val noAnim = AppSettings.trendNoAnimation
+    // T-080: age limit of the kids area; loaded age ratings (KidsAgeVer) change the lists as well
+    val kidsAge = Parental.kidsAge
+    val kidsUnrated = Parental.kidsHideUnrated
+    val kidsKey = KidsAgeVer.v * 1000 + (kidsAge + 2) * 2 + (if (kidsUnrated) 1 else 0)
     // Private categories (T-028) change the rows too: their version is part of the cache key
     val verP = ver * 1000 + PrivateCats.version
-    val cached = HomeCache.get(all, order, wantIpvio, verP, trend, noAdult, noAnim)
+    val cached = HomeCache.get(all, order, wantIpvio, verP, trend, noAdult, noAnim, kidsKey)
     // When inputs change, the previous state stays visible until the new result (produceState keeps the value)
-    val dataState = produceState(cached, all, order, wantIpvio, verP, trend, noAdult, noAnim) {
-        value = HomeCache.get(all, order, wantIpvio, verP, trend, noAdult, noAnim)
-            ?: withContext(Dispatchers.Default) { keepLiveLists(buildHome(all, wantIpvio, trend, noAdult, noAnim), HomeCache.last()) }.also { HomeCache.put(all, order, wantIpvio, verP, trend, noAdult, noAnim, it) }
+    val dataState = produceState(cached, all, order, wantIpvio, verP, trend, noAdult, noAnim, kidsKey) {
+        value = HomeCache.get(all, order, wantIpvio, verP, trend, noAdult, noAnim, kidsKey)
+            ?: withContext(Dispatchers.Default) { keepLiveLists(buildHome(all, wantIpvio, trend, noAdult, noAnim, kidsAge, kidsUnrated), HomeCache.last()) }.also { HomeCache.put(all, order, wantIpvio, verP, trend, noAdult, noAnim, kidsKey, it) }
     }
     // While recomputing: show the previous state, the loading skeleton only the very first time
     val prev = HomeCache.last()
@@ -659,6 +684,21 @@ fun HomeScreen(
     val resumeKids = remember(resumeList, kids) { resumeList.filter { it.second.id in kids.ids } }
     val watchKids = remember(watchHome, kids) { watchHome.filter { it.id in kids.ids } }
     val histKids = remember(histHome, kids) { histHome.filter { it.id in kids.ids } }
+    // T-080: load the missing age ratings of kids titles in the background (one small TMDB request each, with a pause).
+    // The lists are rebuilt every 150 titles and at the end; that new list restarts this effect with the rest.
+    LaunchedEffect(kids.pending) {
+        val todo = kids.pending
+        if (todo.isEmpty()) return@LaunchedEffect
+        delay(4000)
+        var done = 0
+        var fails = 0
+        for (i in todo) {
+            if (MetaRepo.fetchKidsAge(ctx, i)) { done++; fails = 0 } else if (++fails >= 5) break
+            if (done > 0 && done % 150 == 0) { MetaRepo.saveIndex(ctx); KidsAgeVer.v++ }
+            delay(250)
+        }
+        if (done % 150 != 0) { MetaRepo.saveIndex(ctx); KidsAgeVer.v++ }
+    }
     val reload: () -> Unit = { PlaylistStore.savedUrl(ctx)?.let { u -> scope.launch { PlaylistStore.load(ctx, u, false) } } }
 
     // Round 17b (Cinematic Remake): background and info follow the selected title once the big picture has scrolled away

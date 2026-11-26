@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Kids area: new "Age limit in the Kids tab" in Settings > Parental control (Off, 0, 6, 12, 16; default 12) and "Hide titles without an age rating" (default off). The app loads the age ratings of cartoons and anime from TMDB in the background; with several ratings the strictest counts (country of the app language and the US, all releases and seasons), so a series rated 12 in Germany but TV-MA in the US counts as 18. Age ratings on the detail page now show the highest rating of a country instead of a random one of several. Not built with Gradle, not device tested yet
 - Fix: on the home screen and in the search, the highlight could get stuck on "Show all" of a row; Down did nothing. Now Down goes to the first card of the row (the row scrolls to its start), or further down if that is not possible. Not built with Gradle, not device tested yet
 - Fix: after leaving a movie, a TV channel or a movie detail page the screen could stay grey for a few seconds (most visible on slow Fire TV sticks with a large playlist). The check of the trend titles at TMDB now runs only once per day and list, and in the background. Not built with Gradle, not device tested yet
 - Fix: Live TV as tiles now follows the switch "Genre categories in Live TV" (Settings > Live TV). With it off, the automatic tiles "Sports", "Movies", "Documentaries", "Kids", "News" and "Music" no longer show before the provider's categories; before, only the list view followed it. Not built with Gradle, not device tested yet

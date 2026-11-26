@@ -473,6 +473,18 @@ private fun ParentalPage(ctx: Context, onExit: () -> Unit) {
                 "Zeigt Titel und Sender für Erwachsene nie in den Reihen der Startseiten (Start, Filme, Serien), auch nicht unter „Zuletzt geschaut“ oder „Weiter schauen“. In Live TV, in den Kategorien und in der Suche bleiben sie erreichbar.",
                 Parental.homeHide
             ) { Parental.setHomeHide(ctx, it) }
+            // T-080: age limit of the kids area (cartoons and anime)
+            SectionTitle("Kinder-Tab")
+            val kidsAges = listOf(-1, 0, 6, 12, 16)
+            val kidsLabels = listOf("Aus", "FSK 0", "FSK 6", "FSK 12", "FSK 16")
+            val kidsIdx = kidsAges.indexOf(Parental.kidsAge).coerceAtLeast(0)
+            SelectRow("Altersgrenze im Kinder-Tab", kidsLabels[kidsIdx], kidsLabels, kidsIdx) { Parental.setKidsAge(ctx, kidsAges[it]) }
+            Hint("Im Kinder-Tab erscheinen nur Titel bis zu dieser Altersfreigabe. Gibt es mehrere Freigaben (Land der App-Sprache und USA, verschiedene Fassungen oder Staffeln), zählt die strengste. Die Freigaben lädt die App im Hintergrund von TMDB.")
+            if (Parental.kidsAge >= 0) ToggleRow(
+                "Titel ohne Altersfreigabe ausblenden",
+                "Titel, für die keine Freigabe bekannt ist, erscheinen nicht im Kinder-Tab. Ohne TMDB-Daten bleibt der Tab dann fast leer.",
+                Parental.kidsHideUnrated
+            ) { Parental.setKidsHideUnrated(ctx, it) }
             PrivateCatsSection(ctx)
             SectionTitle("PIN")
             Text(if (Parental.pinSet) "PIN ist gesetzt" else "Keine PIN gesetzt", color = if (Parental.pinSet) Accent2 else Muted, fontSize = 16.sp)

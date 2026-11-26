@@ -48,4 +48,14 @@ object KidsLogic {
         for (i in 0 until perRow) for (r in rows) r.getOrNull(i)?.let { if (seen.add(idOf(it))) out.add(it) }
         return out
     }
+
+    /**
+     * T-080: may a title with this age ([AgeRatingLogic.strictest], negative = not known) show in the kids area?
+     * [limit] < 0 = no limit. Titles without a known rating show unless [hideUnrated].
+     */
+    fun allowed(ageMin: Int, limit: Int, hideUnrated: Boolean): Boolean = when {
+        limit < 0 -> true
+        ageMin < 0 -> !hideUnrated
+        else -> ageMin <= limit
+    }
 }

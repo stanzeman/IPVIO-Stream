@@ -6,6 +6,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import okhttp3.Request
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.net.URLEncoder
@@ -38,6 +39,11 @@ data class Meta(
     val age: String? = null,
     /** The age rating was asked for (also true when none exists), so older cache entries load it once. */
     val ageChecked: Boolean = false,
+    /**
+     * T-080: age for the kids filter (the strictest of own-country and US rating, see [AgeRatingLogic.strictest]);
+     * [AgeRatingLogic.NOT_ASKED] = not loaded yet, [AgeRatingLogic.UNKNOWN] = TMDB has none.
+     */
+    val ageMin: Int = AgeRatingLogic.NOT_ASKED,
     /** Series: date of the latest episode ("2026-11-20", T-063), null = not known yet. */
     val lastAir: String? = null,
     /** When [lastAir] was asked for at TMDB (0 = never), see [SeriesAirLogic.due]. */
@@ -122,7 +128,7 @@ object MetaRepo {
                             j.str("lang"), votes = j.optInt("votes"),
                             countries = (j.str("countries") ?: "").split(",").filter { it.isNotBlank() },
                             uiLang = j.optString("ui", "de"), checked = j.optBoolean("chk"),
-                            lastAir = j.str("la"), lastAirTs = j.optLong("lat")
+                            lastAir = j.str("la"), lastAirTs = j.optLong("lat"), ageMin = j.optInt("am", AgeRatingLogic.NOT_ASKED)
                         )
                         slimTs[k] = ts
                     } catch (e: Exception) {
@@ -151,6 +157,7 @@ object MetaRepo {
                     j.put("gids", m.genreIds.joinToString(",")); j.put("lang", m.lang); j.put("votes", m.votes)
                     j.put("countries", m.countries.joinToString(",")); j.put("ui", m.uiLang); j.put("chk", m.checked)
                     if (m.lastAir != null || m.lastAirTs > 0) { j.put("la", m.lastAir); j.put("lat", m.lastAirTs) }
+                    if (m.ageMin != AgeRatingLogic.NOT_ASKED) j.put("am", m.ageMin)
                     w.write(k); w.write("\t"); w.write(j.toString()); w.write("\n")
                 }
                 for (k in misses) {
@@ -273,7 +280,7 @@ object MetaRepo {
             j.put("countries", m.countries.joinToString(",")); j.put("ui", m.uiLang)
             j.put("chk", m.checked); j.put("v", MATCH_V)
             j.put("age", m.age); j.put("agec", m.ageChecked)
-            j.put("la", m.lastAir); j.put("lat", m.lastAirTs)
+            j.put("la", m.lastAir); j.put("lat", m.lastAirTs); j.put("am", m.ageMin)
             File(dir(c), k.hashCode().toString()).writeText(j.toString())
         } catch (e: Exception) {
         }
@@ -299,7 +306,7 @@ object MetaRepo {
                 uiLang = j.optString("ui", "de"),
                 checked = j.optBoolean("chk"),
                 age = j.str("age"), ageChecked = j.optBoolean("agec"),
-                lastAir = j.str("la"), lastAirTs = j.optLong("lat")
+                lastAir = j.str("la"), lastAirTs = j.optLong("lat"), ageMin = j.optInt("am", AgeRatingLogic.NOT_ASKED)
             )
         } catch (e: Exception) {
             null
@@ -514,8 +521,10 @@ object MetaRepo {
                 ov = getNow("https://api.themoviedb.org/3/$type/${b.tmdbId}?api_key=${Config.TMDB_KEY}&language=en-US")
                     ?.let { runCatching { JSONObject(it).str("overview") }.getOrNull() }?.takeIf { it.isNotBlank() }
             }
-            val age = if (needAge) AgeRatingLogic.pick(ageByCountry(o, b.isTv), country) else b.age
-            m = b.copy(overview = ov ?: b.overview.takeIf { b.uiLang == Lang.metaCode() }, genres = genres, runtime = runtime,
+            val byCountry = if (needAge) ageByCountry(o, b.isTv) else emptyMap()
+            val age = if (needAge) AgeRatingLogic.pick(byCountry, country) else b.age
+            m = b.copy(ageMin = if (needAge) AgeRatingLogic.strictest(byCountry, country) else b.ageMin,
+                overview = ov ?: b.overview.takeIf { b.uiLang == Lang.metaCode() }, genres = genres, runtime = runtime,
                 trailerKey = trailer, imdbId = imdb, uiLang = Lang.metaCode(), checked = true, age = age, ageChecked = needAge || b.ageChecked,
                 lastAir = if (b.isTv) o.str("last_air_date") ?: b.lastAir else b.lastAir, lastAirTs = if (b.isTv) System.currentTimeMillis() else b.lastAirTs)
         } catch (e: Exception) {
@@ -548,9 +557,16 @@ object MetaRepo {
      * Age ratings per country from a TMDB detail answer: "content_ratings" for series, "release_dates" for movies.
      * Unknown or broken parts are skipped.
      */
-    private fun ageByCountry(o: JSONObject, tv: Boolean): Map<String, String> {
-        val out = HashMap<String, String>()
-        val res = o.optJSONObject(if (tv) "content_ratings" else "release_dates")?.optJSONArray("results") ?: return out
+    private fun ageByCountry(o: JSONObject, tv: Boolean): Map<String, String> =
+        ageMap(o.optJSONObject(if (tv) "content_ratings" else "release_dates")?.optJSONArray("results"), tv)
+
+    /**
+     * Ratings per country from the "results" of TMDB's content_ratings / release_dates. T-080: a country can have several
+     * (e.g. one per season); the highest counts ([AgeRatingLogic.highest]), before the last one won.
+     */
+    private fun ageMap(res: JSONArray?, tv: Boolean): Map<String, String> {
+        val all = HashMap<String, ArrayList<String>>()
+        if (res == null) return emptyMap()
         for (x in 0 until res.length()) {
             val r = res.optJSONObject(x) ?: continue
             val cc = r.optString("iso_3166_1").uppercase()
@@ -562,9 +578,30 @@ object MetaRepo {
                 }
                 AgeRatingLogic.movieCert(dates)
             }
-            if (!cert.isNullOrBlank()) out[cc] = cert
+            if (!cert.isNullOrBlank()) all.getOrPut(cc) { ArrayList() }.add(cert)
         }
+        val out = HashMap<String, String>()
+        for ((cc, l) in all) AgeRatingLogic.highest(l)?.let { out[cc] = it }
         return out
+    }
+
+    /**
+     * T-080: loads only the age rating of a title for the kids filter (one small TMDB request) and stores [Meta.ageMin].
+     * Only for titles with a known TMDB number whose rating was not asked for yet. False when nothing was loaded.
+     * The shown age label and the rest of the details stay as they are.
+     */
+    suspend fun fetchKidsAge(ctx: Context, i: Item): Boolean {
+        if (!enabled()) return false
+        val k = key(i)
+        val b = cached(i)?.takeIf { it.tmdbId > 0 && it.ageMin == AgeRatingLogic.NOT_ASKED } ?: return false
+        val path = if (b.isTv) "tv/${b.tmdbId}/content_ratings" else "movie/${b.tmdbId}/release_dates"
+        val body = get("https://api.themoviedb.org/3/$path?api_key=${Config.TMDB_KEY}") ?: return false
+        val res = runCatching { JSONObject(body).optJSONArray("results") }.getOrNull() ?: return false
+        val am = AgeRatingLogic.strictest(ageMap(res, b.isTv), AgeRatingLogic.country(MetaLangLogic.tmdbTag(Lang.code())))
+        synchronized(mem) { mem[k]?.let { mem[k] = it.copy(ageMin = am) } }
+        slim[k]?.let { slim[k] = it.copy(ageMin = am); dirty = true }
+        load(ctx, k)?.let { save(ctx, k, it.copy(ageMin = am)) }
+        return true
     }
 
     private val tvSeasonMem = ConcurrentHashMap<String, List<EpisodeLogic.TmdbSeason>>()
