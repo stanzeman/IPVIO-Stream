@@ -61,15 +61,18 @@ internal fun PlaylistEditDialog(ctx: Context, index: Int, scope: CoroutineScope,
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         // Focus into the window at once: without it the remote could not reach the fields (OK and D-pad did nothing)
         LaunchedEffect(Unit) { delay(50); runCatching { first.requestFocus() } }
+        // Never taller than the screen: the middle part scrolls, title and the "Apply" / "Cancel" row always stay visible
+        // (on a phone in landscape and on a 1080p TV a fixed 420 dp middle part pushed the buttons off the screen)
+        val maxH = (androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp - 24).coerceAtLeast(240).dp
         Column(
-            Modifier.width(760.dp).clip(RoundedCornerShape(DS.RadiusL)).background(Tok.GlassStrong).padding(24.dp),
+            Modifier.width(760.dp).heightIn(max = maxH).clip(RoundedCornerShape(DS.RadiusL)).background(Tok.GlassStrong).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(Lang.tr("Playlist bearbeiten"), color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
             Text(PlaylistStore.hostOf(url), color = Muted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             // Scroll without the app-wide soft scrolling: with it the list trailed slowly behind the focus (same fix as the add screen)
             CompositionLocalProvider(LocalBringIntoViewSpec provides InstantSpec) {
-            Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Field(name, { name = it }, "Name der Playlist", inner = Modifier.focusRequester(first))
                 SelectRow("Inhalt der Playlist", PlaylistMode.labels[mode], PlaylistMode.labels, mode, active = mode != PlaylistMode.ALL) { mode = it }
                 // T-051 (23 Nov 2026): can be switched on again; the section menus load playlists the same way
@@ -113,9 +116,13 @@ internal fun PlaylistEditDialog(ctx: Context, index: Int, scope: CoroutineScope,
                     if (ch.mode) PlaylistMode.set(ctx, url, mode)
                     if (ch.refresh) { PlaylistRefresh.set(ctx, url, refresh); Updater.apply(ctx) }
                     if (ch.shown && !shown) PlaylistStore.setShown(ctx, index, false)
-                    if (ch.mode || (ch.shown && !shown)) scope.launch {
+                    // Main list: the mode is applied while parsing the stored list again (no download); retried while a
+                    // load runs, in a scope that outlives this window
+                    val mainMode = ch.mode && index == PlaylistStore.active
+                    if (mainMode) PlaylistStore.modeChanged(ctx)
+                    if ((ch.mode && !mainMode) || (ch.shown && !shown)) scope.launch {
                         // The mode is applied while parsing the stored list again (no download); then the extra lists are rebuilt
-                        if (ch.mode && !PlaylistStore.reapplyLanguages(ctx)) PlaylistStore.applyMode(ctx)
+                        if (ch.mode && !mainMode && !PlaylistStore.reapplyLanguages(ctx)) PlaylistStore.applyMode(ctx)
                         if (ch.shown) PlaylistStore.applyMulti(ctx)
                     }
                     // Switched on: loaded in a scope that outlives this window (stored copy first, otherwise the server)
