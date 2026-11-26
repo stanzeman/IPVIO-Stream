@@ -178,4 +178,18 @@ class TrendLogicTest {
         assertFalse(TrendLogic.isAnimation(emptyList(), "фильмы"))
         assertFalse(TrendLogic.isAnimation(emptyList(), null))
     }
+
+    @Test fun verifyKey_is_the_same_for_the_same_board_and_list_size() {
+        val b = TrendLogic.Board("2026-11-26", 1L, mapOf("m:1" to 1.0), emptyMap(), "ru", "ru-RU")
+        assertEquals(TrendLogic.verifyKey(b, 500), TrendLogic.verifyKey(b.renewed(), 500))
+    }
+
+    @Test fun verifyKey_changes_with_day_language_focus_and_list_size() {
+        val b = TrendLogic.Board("2026-11-26", 1L, mapOf("m:1" to 1.0), emptyMap(), "ru", "ru-RU")
+        val k = TrendLogic.verifyKey(b, 500)
+        assertFalse(k == TrendLogic.verifyKey(b, 501))
+        assertFalse(k == TrendLogic.verifyKey(TrendLogic.Board("2026-11-27", 1L, b.points, b.titles, "ru", "ru-RU"), 500))
+        assertFalse(k == TrendLogic.verifyKey(TrendLogic.Board("2026-11-26", 1L, b.points, b.titles, "ru", "de-DE"), 500))
+        assertFalse(k == TrendLogic.verifyKey(TrendLogic.Board("2026-11-26", 1L, b.points, b.titles, "", "ru-RU"), 500))
+    }
 }

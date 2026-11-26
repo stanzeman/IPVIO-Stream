@@ -6,6 +6,8 @@ The former log is kept unchanged in `docs/tasks/WORK_STATE-history.md`. Do not a
 
 ## Current task
 
+Last update: 2026-11-26. T-079 grey screen when returning to the home screen (branch `fix/T-079-home-return-freeze` from `my-build` d632971): see `docs/tasks/T-079-home-return-freeze.md`. TrendLogicTest + MatchLogicTest 31/31 OK. Not built, not device tested. Next: maintainer builds and runs the test steps.
+
 Last update: 2026-11-26. T-078 Live TV tiles follow the genre switch (branch `fix/T-078-grid-genre-switch` from `my-build` 1db04c3): see `docs/tasks/T-078-grid-genre-switch.md`. LiveGenreLogicTest 3/3 OK. Not built, not device tested. Next: maintainer builds and runs the test steps.
 
 Last update: 2026-11-26. T-077 "Kids" area (branch `feat/T-077-kids-tab` from `my-build` cb3d0e8): see `docs/tasks/T-077-kids-tab.md`. 805 JVM tests OK. Not built, not device tested. Next: maintainer builds and runs the test steps.
@@ -93,7 +95,7 @@ The full list with test steps is in `docs/tasks/WORK_STATE-history.md`, section 
 
 ## Task IDs
 
-- Highest ID in `docs/tasks/`: T-070. **Next free ID: T-071** (use `/new-task`, which checks this).
+- Highest ID in `docs/tasks/`: T-070. **Next free ID: T-080** (use `/new-task`, which checks this).
 - IDs used by more than one file: T-009, T-014, T-026, T-027, T-032. The files are not renamed here, because the old log and other task files refer to them by name. Renaming needs a decision.
 
 ## Conventions

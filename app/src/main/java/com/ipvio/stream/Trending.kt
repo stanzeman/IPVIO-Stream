@@ -33,6 +33,8 @@ object Trending {
     private const val MAX_CHECK = 40
     /** Titles already checked for a board day in this app run ("day|key"), so a home rebuild does not ask again. */
     private val checked = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
+    /** T-079: board and list size of the last finished [verify] ([TrendLogic.verifyKey]); a return to the home screen skips it. */
+    @Volatile private var verified: String? = null
 
     private fun day(offsetDays: Int = 0): String {
         val c = Calendar.getInstance()
@@ -77,12 +79,18 @@ object Trending {
      */
     suspend fun verify(ctx: Context, items: List<Item>, b: TrendLogic.Board): Boolean {
         if (b.isEmpty() || !MetaRepo.enabled()) return false
+        // T-079: the home screen starts this again after every return from the player or a detail page; same board and list = done
+        val vk = TrendLogic.verifyKey(b, items.size)
+        if (vk == verified) return false
         MetaRepo.loadIndex(ctx)
-        val series = items.filter { it.kind == Kind.SERIES }
-        val movies = items.filter { it.kind == Kind.MOVIE }
-        val todo = (TrendLogic.candidates(series, b, true, ::keyOf, { MatchLogic.searchTitle(it.title) }, MAX_CHECK) +
-            TrendLogic.candidates(movies, b, false, ::keyOf, { MatchLogic.searchTitle(it.title) }, MAX_CHECK))
-            .distinctBy { it.mk }.filter { "${b.day}|${it.mk}" !in checked }.take(MAX_CHECK)
+        // T-079: going through the whole playlist (name cleanup per title) takes seconds on slow devices: never on the main thread
+        val todo = withContext(Dispatchers.Default) {
+            val series = items.filter { it.kind == Kind.SERIES }
+            val movies = items.filter { it.kind == Kind.MOVIE }
+            (TrendLogic.candidates(series, b, true, ::keyOf, { MatchLogic.searchTitle(it.title) }, MAX_CHECK) +
+                TrendLogic.candidates(movies, b, false, ::keyOf, { MatchLogic.searchTitle(it.title) }, MAX_CHECK))
+                .distinctBy { it.mk }.filter { "${b.day}|${it.mk}" !in checked }.take(MAX_CHECK)
+        }
         var changed = false
         for (i in todo) {
             val before = keyOf(i)
@@ -92,6 +100,8 @@ object Trending {
             kotlinx.coroutines.delay(PAUSE_MS)
         }
         if (changed) MetaRepo.saveIndex(ctx)
+        // Only after a full run: a run cut short (player opened during the checks) continues on the next return
+        verified = vk
         return changed
     }
 
