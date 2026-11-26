@@ -111,8 +111,51 @@ private class HomeData(
     /** "New titles" (T-066): newest release year first, series by their latest episode. */
     val newM: List<Item> = emptyList(), val newS: List<Item> = emptyList(),
     /** "Russian & Kazakh" (T-066): only RU/KZ productions or Russian/Kazakh original language, newest first. */
-    val ruM: List<Item> = emptyList(), val ruS: List<Item> = emptyList()
+    val ruM: List<Item> = emptyList(), val ruS: List<Item> = emptyList(),
+    /** T-077: lists of the "Kids" area. */
+    val kids: KidsLists = KidsLists.EMPTY
 )
+
+/** T-077: cartoons and anime of the playlist ("Kids" area), never with adult titles. */
+private class KidsLists(
+    val movies: List<Item>, val series: List<Item>, val anime: List<Item>,
+    val topCartoonM: List<Item>, val topCartoonS: List<Item>, val topAnimeM: List<Item>, val topAnimeS: List<Item>,
+    /** All kids titles, newest added first. */
+    val newest: List<Item>, val ids: Set<String>
+) {
+    fun isEmpty() = ids.isEmpty()
+    companion object {
+        val EMPTY = KidsLists(emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptySet())
+    }
+}
+
+private fun kidsKind(i: Item): Int = MetaRepo.cached(i).let { m -> KidsLogic.classify(m?.genreIds ?: emptyList(), m?.lang, i.group) }
+
+/**
+ * T-077: splits the movies and series into cartoons and anime and builds the four top rows. The option of T-076
+ * (no cartoons in the top lists) does not apply here; adult titles are always left out.
+ */
+private fun buildKids(
+    movies: List<Item>, series: List<Item>, trend: TrendLogic.Board, boostOf: (Item) -> Double,
+    info: (Item) -> HomeListsLogic.Info, nowYear: Int
+): KidsLists {
+    val cm = ArrayList<Item>(); val am = ArrayList<Item>(); val cs = ArrayList<Item>(); val asr = ArrayList<Item>()
+    for (i in movies) if (!ParentalLogic.isAdult(i.group, i.title)) when (kidsKind(i)) { KidsLogic.CARTOON -> cm.add(i); KidsLogic.ANIME -> am.add(i) }
+    for (i in series) if (!ParentalLogic.isAdult(i.group, i.title)) when (kidsKind(i)) { KidsLogic.CARTOON -> cs.add(i); KidsLogic.ANIME -> asr.add(i) }
+    if (cm.isEmpty() && am.isEmpty() && cs.isEmpty() && asr.isEmpty()) return KidsLists.EMPTY
+    fun topOf(l: List<Item>, tv: Boolean): List<Item> {
+        if (l.isEmpty()) return emptyList()
+        val tr = if (tv) TrendLogic.rank(l, trend, true, Trending::keyOf, { MatchLogic.searchTitle(it.title) }, boostOf, 20) { MatchLogic.seasonOf(it.title) }
+            else TrendLogic.rank(l, trend, false, Trending::keyOf, { MatchLogic.searchTitle(it.title) }, boostOf, 20)
+        val newest = RecentSortLogic.newestN(l, 20) { it.added }
+        return KidsLogic.top(tr, HomeListsLogic.popularNew(l, info, nowYear), newest, { it.id }, 20)
+    }
+    val all = cm + cs + am + asr
+    return KidsLists(
+        cm, cs, am + asr, topOf(cm, false), topOf(cs, true), topOf(am, false), topOf(asr, true),
+        RecentSortLogic.newestN(all, 40) { it.added }, all.mapTo(HashSet(all.size)) { it.id }
+    )
+}
 
 /** What the tab lists need of a title (T-065, T-066); without metadata only the playlist year is known. */
 private fun listInfo(i: Item): HomeListsLogic.Info {
@@ -166,7 +209,8 @@ private fun buildHome(all: List<Item>, ipvioWanted: Boolean, trend: TrendLogic.B
         HomeListsLogic.popularNew(rm, info, nowYear), HomeListsLogic.popularNew(rs, info, nowYear),
         all.associateBy { it.id }, trendItems, genresOk, rm, rs,
         HomeListsLogic.newestFirst(rm, info), HomeListsLogic.newestFirst(rs, info),
-        HomeListsLogic.localNewest(rm, info), HomeListsLogic.localNewest(rs, info)
+        HomeListsLogic.localNewest(rm, info), HomeListsLogic.localNewest(rs, info),
+        buildKids(movies, series, trend, boostOf, info, nowYear)
     )
 }
 
@@ -191,7 +235,7 @@ private fun keepLiveLists(d: HomeData, prev: HomeData?): HomeData {
     val liveP = if (d.liveP.size == prev.liveP.size && d.liveP.keys.zip(prev.liveP.keys).all { (a, b) -> a == b } &&
         d.liveP.all { (k, l) -> sameItems(l, prev.liveP[k]) }) prev.liveP else d.liveP
     if (live === d.live && liveP === d.liveP) return d
-    return HomeData(live, d.movies, d.series, liveP, d.movieP, d.seriesP, d.movieG, d.seriesG, d.topM, d.topS, d.byId, d.trendItems, d.genresOk, d.rowMovies, d.rowSeries, d.newM, d.newS, d.ruM, d.ruS)
+    return HomeData(live, d.movies, d.series, liveP, d.movieP, d.seriesP, d.movieG, d.seriesG, d.topM, d.topS, d.byId, d.trendItems, d.genresOk, d.rowMovies, d.rowSeries, d.newM, d.newS, d.ruM, d.ruS, d.kids)
 }
 
 private fun sameItems(a: List<Item>, b: List<Item>?): Boolean {
@@ -366,7 +410,11 @@ fun HomeScreen(
     val ready = remember { mutableStateListOf<Item>() }
     // Also use the sizes of movies/series as a key: if the computed home screen arrives only after the list (and without trend titles,
     // i.e. the same empty trend list), the selection stayed empty and the big picture was missing.
-    val candidates = remember(all, trendItems, rowMovies.size, rowSeries.size, tab, noAnim) {
+    val kids = data.kids
+    val candidates = remember(all, trendItems, rowMovies.size, rowSeries.size, tab, noAnim, kids) {
+        // T-077: the kids area shows its own top titles (the T-076 option does not apply there)
+        if (tab == MenuLogic.KIDS) return@remember (KidsLogic.heroMix(listOf(kids.topCartoonM, kids.topCartoonS, kids.topAnimeM, kids.topAnimeS), { it.id }, 8) + kids.newest.take(10)).distinctBy { it.id }
+
         // T-076: without cartoons and anime also among the newest titles of the big picture (the trend titles are filtered already)
         val newM = if (noAnim) rowMovies.asReversed().asSequence().filterNot(::isAnimation) else rowMovies.asReversed().asSequence()
         val newS = if (noAnim) rowSeries.asReversed().asSequence().filterNot(::isAnimation) else rowSeries.asReversed().asSequence()
@@ -378,6 +426,9 @@ fun HomeScreen(
     }
     // Movies/series: tabs at the top next to the search (instead of the big buttons under the picture)
     val isVod = tab == 1 || tab == 2
+    // T-077: the kids area has tabs at the top as well (all movies, all series, all anime, newly added)
+    val isKids = tab == MenuLogic.KIDS
+    val hasTabs = isVod || isKids
     val vodBase = if (tab == 1) movies else series
     val vodTop = if (tab == 1) topM else topS
     val vodNewest = if (tab == 1) data.newM else data.newS
@@ -424,7 +475,12 @@ fun HomeScreen(
             st.animateScrollBy(700f)
         }
     }
-    val navTabs = if (!isVod) emptyList() else listOf(
+    val navTabs = if (isKids) listOf(
+        HeaderTab("Alle Filme", AIcon.Grid, "tb:kidsm") { onBrowse(BrowseReq("Alle Filme · Kinder", kids.movies, SORT_NEW)) },
+        HeaderTab("Alle Serien", AIcon.Grid, "tb:kidss") { onBrowse(BrowseReq("Alle Serien · Kinder", kids.series, SORT_NEW)) },
+        HeaderTab("Alle Anime", AIcon.Grid, "tb:kidsa") { onBrowse(BrowseReq("Alle Anime", kids.anime, SORT_NEW)) },
+        HeaderTab("Neu hinzugefügt", AIcon.Sparkle, "tb:kidsn") { onBrowse(BrowseReq("Neu hinzugefügt · Kinder", kids.newest, SORT_PLAYLIST)) }
+    ) else if (!isVod) emptyList() else listOf(
         HeaderTab("Kategorien", AIcon.Categories, "tb:cats$tab") { openCats() },
         HeaderTab("Beliebt & neu", AIcon.Star, "tb:top$tab") { onBrowse(BrowseReq("Beliebt & neu · $vodNoun", vodTop, SORT_PLAYLIST)) },
         HeaderTab("Neue Titel", AIcon.Pulse, "tb:newt$tab") { onBrowse(BrowseReq("Neue Titel · $vodNoun", vodNewest, SORT_PLAYLIST)) },
@@ -448,7 +504,7 @@ fun HomeScreen(
             // Round 20: the View button is gone (now in Settings > View), only bell and profile at the top right
             showView = false,
             // Without a big picture (no title images yet): the first tab is the target from the sidebar
-            firstIsContent = isVod && ready.isEmpty()
+            firstIsContent = hasTabs && ready.isEmpty()
         )
     }
     // Tiles with real images from the own library (round 15): scene image of a top title per area,
@@ -526,7 +582,7 @@ fun HomeScreen(
             if (LastFocus.pending != null) {
                 LastFocus.pending = null
                 val st = states[tab]
-                val atTop = (tab == 0 && st.firstVisibleItemIndex == 0) || (tab in 1..2 && st.firstVisibleItemIndex <= 1)
+                val atTop = (tab == 0 && st.firstVisibleItemIndex == 0) || ((tab in 1..2 || tab == MenuLogic.KIDS) && st.firstVisibleItemIndex <= 1)
                 if (atTop) runCatching { ContentFocus.req.requestFocus() }
             }
         }
@@ -570,7 +626,7 @@ fun HomeScreen(
         else runCatching { sideFocus.requestFocus() }
     }
     // Movies/series: Back from the rows leads first to the tabs at the top, from there into the sidebar
-    BackHandler(enabled = !inSidebar && !inHeader && isVod && all.isNotEmpty()) {
+    BackHandler(enabled = !inSidebar && !inHeader && hasTabs && all.isNotEmpty()) {
         scope.launch {
             runCatching { states[tab].scrollToItem(0) }
             repeat(8) {
@@ -599,17 +655,21 @@ fun HomeScreen(
     val watchK = remember(watchHome, vodKind) { watchHome.filter { it.kind == vodKind } }
     val histK = remember(histHome, vodKind) { histHome.filter { it.kind == vodKind } }
     val trendK = remember(trendItems, vodKind) { trendItems.filter { it.kind == vodKind } }
+    // T-077: kids area: the same personal rows, only with its cartoons and anime
+    val resumeKids = remember(resumeList, kids) { resumeList.filter { it.second.id in kids.ids } }
+    val watchKids = remember(watchHome, kids) { watchHome.filter { it.id in kids.ids } }
+    val histKids = remember(histHome, kids) { histHome.filter { it.id in kids.ids } }
     val reload: () -> Unit = { PlaylistStore.savedUrl(ctx)?.let { u -> scope.launch { PlaylistStore.load(ctx, u, false) } } }
 
     // Round 17b (Cinematic Remake): background and info follow the selected title once the big picture has scrolled away
-    val bbTab = tab in 0..2
+    val bbTab = tab in 0..2 || tab == MenuLogic.KIDS
     val bbState = states[tab.coerceIn(0, states.lastIndex)]
     // Round 18: even when the big picture is still partly visible (e.g. first row "Popular series"), the background shows
     // the info of the selected title – and the big picture (slideshow) pauses.
     // Info at the top only for the normal title rows (from "Top 10 today" or "Newly added"), not for tiles, Live TV, Continue watching,
     // My list and Recently watched. And only if the row is low enough not to cover the info.
     val listTop = remember { floatArrayOf(0f) }
-    val noBb = remember { setOf("hero", "top", "tiles", "resume", "chnow", "hero1", "hero2", "top1", "top2", "res1", "res2", "wl1", "wl2", "hr1", "hr2", "hint1", "hint2") }
+    val noBb = remember { setOf("hero", "top", "tiles", "resume", "chnow", "hero1", "hero2", "top1", "top2", "res1", "res2", "wl1", "wl2", "hr1", "hr2", "hint1", "hint2", "heroK", "topK", "resK", "wlK", "hrK", "hintK") }
     val bbOnState = remember(tab) {
         derivedStateOf {
             if (!bbTab || !Billboard.cardFocus || Billboard.focused == null) return@derivedStateOf false
@@ -823,6 +883,28 @@ fun HomeScreen(
                             groups.entries.take(12).forEach { (g, l) -> item(key = "G$tab$g") { ItemsRow(g, l, cardW, onOpen) { onBrowse(BrowseReq(g, l, SORT_NEW)) } } }
                             if (groups.size > 12) item { EmptyHint("Weitere Kategorien findest du unter „Kategorien“ oben.") }
 
+                        }
+                        MenuLogic.KIDS -> {
+                            if (ready.isNotEmpty()) item(key = "heroK") { Hero(ready.toList(), heroH, false, onOpen, onPlayNow, header, { heroScroll(states[tab]) }) { scope.launch { states[tab].animateScrollToItem(0) } } }
+                            else item(key = "topK") { header(Modifier) }
+                            if (kids.isEmpty()) item(key = "hintK") { EmptyHint("Keine Zeichentrick- oder Anime-Titel in dieser Playlist") }
+                            // First row: up = profile at the top right, left = "To list" in the picture (as in Movies/Series)
+                            val rows = listOf(
+                                Triple("Top Zeichentrick-Filme", kids.topCartoonM, "kcm"), Triple("Top Zeichentrick-Serien", kids.topCartoonS, "kcs"),
+                                Triple("Top Anime-Filme", kids.topAnimeM, "kam"), Triple("Top Anime-Serien", kids.topAnimeS, "kas")
+                            ).filter { it.second.isNotEmpty() }
+                            rows.forEachIndexed { idx, (title, l, key) ->
+                                item(key = key) {
+                                    ItemsRow(title, l, cardW, onOpen, upReq = if (idx == 0) HeaderFocus.profile else null,
+                                        leftReq = if (idx == 0 && ready.isNotEmpty()) HeroFocus.second else null) {
+                                        onBrowse(BrowseReq(title, l, SORT_PLAYLIST))
+                                    }
+                                }
+                            }
+                            if (resumeKids.isNotEmpty()) item(key = "resK") { ResumeRow(resumeKids, cardW, onResume) }
+                            if (watchKids.isNotEmpty()) item(key = "wlK") { ItemsRow("Meine Liste", watchKids, cardW, onOpen) { onBrowse(BrowseReq("Meine Liste · Kinder", watchKids, SORT_PLAYLIST)) } }
+                            if (histKids.isNotEmpty()) item(key = "hrK") { ItemsRow("Zuletzt geschaut", histKids, cardW, onOpen) { onBrowse(BrowseReq("Zuletzt geschaut · Kinder", histKids, SORT_PLAYLIST)) } }
+                            if (kids.newest.size >= 3) item(key = "newK") { ItemsRow("Neu hinzugefügt", kids.newest, cardW, onOpen) { onBrowse(BrowseReq("Neu hinzugefügt · Kinder", kids.newest, SORT_PLAYLIST)) } }
                         }
                         MenuLogic.FAVS -> {
                             // Round 14: besides channels also movies and series (detail page > "Add to favorites")

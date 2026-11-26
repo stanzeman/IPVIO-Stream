@@ -32,5 +32,16 @@ Der Anbieter hat die Filmliste nicht geliefert. Die bisherige Liste bleibt erhal
 Der Anbieter hat die Serienliste nicht geliefert. Die bisherige Liste bleibt erhalten – bitte später erneut versuchen.¦The provider did not deliver the series list. The previous list is kept – please try again later.¦Sağlayıcı dizi listesini göndermedi. Önceki liste korunuyor – lütfen daha sonra tekrar deneyin.¦Provajder nije isporučio listu serija. Prethodna lista ostaje – pokušajte ponovo kasnije.¦Pružatelj nije isporučio popis serija. Prethodni popis ostaje – pokušajte ponovo kasnije.¦Provajder nije isporučio spisak serija. Prethodni spisak ostaje – pokušajte ponovo kasnije.¦El proveedor no ha enviado la lista de series. La lista anterior se conserva; inténtalo de nuevo más tarde.¦Le fournisseur n'a pas fourni la liste des séries. L'ancienne liste est conservée – réessaie plus tard.¦Il fornitore non ha fornito l'elenco delle serie. L'elenco precedente resta – riprova più tardi.
 Der Anbieter hat die Senderliste nicht geliefert. Die bisherige Liste bleibt erhalten – bitte später erneut versuchen.¦The provider did not deliver the channel list. The previous list is kept – please try again later.¦Sağlayıcı kanal listesini göndermedi. Önceki liste korunuyor – lütfen daha sonra tekrar deneyin.¦Provajder nije isporučio listu kanala. Prethodna lista ostaje – pokušajte ponovo kasnije.¦Pružatelj nije isporučio popis kanala. Prethodni popis ostaje – pokušajte ponovo kasnije.¦Provajder nije isporučio spisak kanala. Prethodni spisak ostaje – pokušajte ponovo kasnije.¦El proveedor no ha enviado la lista de canales. La lista anterior se conserva; inténtalo de nuevo más tarde.¦Le fournisseur n'a pas fourni la liste des chaînes. L'ancienne liste est conservée – réessaie plus tard.¦Il fornitore non ha fornito l'elenco dei canali. L'elenco precedente resta – riprova più tardi.
 Zeichentrick und Anime nicht in Top 10 und Großbild¦No cartoons and anime in the Top 10 and big picture
+Top Zeichentrick-Filme¦Top animated movies
+Top Zeichentrick-Serien¦Top animated series
+Top Anime-Filme¦Top anime movies
+Top Anime-Serien¦Top anime series
+Alle Anime¦All anime
+Alle Filme · Kinder¦All movies · Kids
+Alle Serien · Kinder¦All series · Kids
+Neu hinzugefügt · Kinder¦Newly added · Kids
+Meine Liste · Kinder¦My list · Kids
+Zuletzt geschaut · Kinder¦Recently watched · Kids
+Keine Zeichentrick- oder Anime-Titel in dieser Playlist¦No cartoon or anime titles in this playlist
 Zeichentrickfilme, Zeichentrickserien und Anime erscheinen nicht in „Top 10 heute“, „Im Trend“ und im großen Bild oben. In Kategorien, Suche und den anderen Reihen bleiben sie.¦Animated movies, animated series and anime are left out of "Top 10 today", "Trending" and the big picture at the top. They stay in categories, search and the other rows.
 """
