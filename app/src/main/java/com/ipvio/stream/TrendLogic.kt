@@ -125,13 +125,15 @@ object TrendLogic {
     /**
      * Ranks playlist titles of one kind ([tv] = series): [keyOf] gives the TMDB key (null = unknown), [titleOf] the title for
      * the fallback, [boostOf] the extra factor (see [boost]). Every key counts once (the first playlist entry wins), best
-     * first, at most [limit].
+     * first, at most [limit]. With several seasons of one series as separate playlist titles, the one with the highest
+     * [seasonOf] is shown.
      *
      * T-073: the TMDB number decides. The name counts only while the number is not known yet (see [candidates]), and only
      * within the same kind. A title whose number is known but not on the board is not in the trend, whatever its name.
      */
     fun <T> rank(
-        items: List<T>, board: Board, tv: Boolean, keyOf: (T) -> String?, titleOf: (T) -> String, boostOf: (T) -> Double, limit: Int
+        items: List<T>, board: Board, tv: Boolean, keyOf: (T) -> String?, titleOf: (T) -> String, boostOf: (T) -> Double, limit: Int,
+        seasonOf: (T) -> Int = { 0 }
     ): List<T> {
         if (board.isEmpty() || items.isEmpty()) return emptyList()
         val best = HashMap<String, Pair<T, Double>>()
@@ -140,7 +142,9 @@ object TrendLogic {
             val k = if (known != null) known.takeIf { k -> board.points.containsKey(k) } ?: continue
                 else board.titles[titleKey(tv, titleOf(it))] ?: continue
             val p = (board.points[k] ?: continue) * boostOf(it)
-            if (!best.containsKey(k)) best[k] = it to p
+            // T-074: several seasons listed as separate titles: the newest season shows (else the first entry)
+            val prev = best[k]
+            if (prev == null || seasonOf(it) > seasonOf(prev.first)) best[k] = it to p
         }
         return best.values.sortedByDescending { it.second }.take(limit).map { it.first }
     }

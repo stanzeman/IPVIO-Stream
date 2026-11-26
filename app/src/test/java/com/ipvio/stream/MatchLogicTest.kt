@@ -65,4 +65,33 @@ class MatchLogicTest {
         assertEquals(1, MatchLogic.best("Корни", 1977, res)!!.id)
         assertEquals(2, MatchLogic.best("Корни", 1990, res)!!.id)   // no year fits: original name
     }
+
+    @Test fun seasonInTheSeriesNameIsLeftOutOfTheSearch() {
+        // T-074: names as the video portal lists them
+        assertEquals("Маша и Медведь", MatchLogic.searchTitle("Маша и Медведь. Сезон 5."))
+        assertEquals("Полярный", MatchLogic.searchTitle("Полярный. Сезон 1"))
+        assertEquals("Условный мент", MatchLogic.searchTitle("Условный мент Сезон 3"))
+        assertEquals("Невский", MatchLogic.searchTitle("Невский 2 сезон"))
+        assertEquals("Невский", MatchLogic.searchTitle("Невский (2-й сезон)"))
+        assertEquals("Lupin", MatchLogic.searchTitle("Lupin (Season 2)"))
+        assertEquals("Dark", MatchLogic.searchTitle("DE - Dark Staffel 1-3"))
+        assertEquals("Невский. Расплата за справедливость", MatchLogic.searchTitle("Невский. Расплата за справедливость. Сезон 6"))
+        assertTrue(MatchLogic.sameTitle("Маша и Медведь. Сезон 5", "Маша и Медведь"))
+    }
+
+    @Test fun titlesThatOnlyContainSeasonWordsStay() {
+        assertEquals("Сезон 5", MatchLogic.searchTitle("Сезон 5"))                    // never empty
+        assertEquals("Тверская", MatchLogic.searchTitle("Тверская"))
+        assertEquals("Сезон охоты", MatchLogic.searchTitle("Сезон охоты"))            // no number at the end
+        assertEquals("Blade Runner 2049", MatchLogic.searchTitle("Blade Runner 2049"))
+        assertEquals("Ocean's 11", MatchLogic.searchTitle("Ocean's 11"))
+    }
+
+    @Test fun seasonNumberFromTheName() {
+        assertEquals(5, MatchLogic.seasonOf("Маша и Медведь. Сезон 5."))
+        assertEquals(2, MatchLogic.seasonOf("Невский (2-й сезон)"))
+        assertEquals(3, MatchLogic.seasonOf("Lupin Season 3"))
+        assertEquals(0, MatchLogic.seasonOf("Тверская"))
+        assertEquals(0, MatchLogic.seasonOf("Ocean's 11"))
+    }
 }

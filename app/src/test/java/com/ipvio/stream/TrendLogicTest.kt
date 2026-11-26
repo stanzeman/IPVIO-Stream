@@ -149,4 +149,21 @@ class TrendLogicTest {
         val r = b.renewed()
         assertTrue(r !== b && r.points == b.points && r.lang == b.lang)
     }
+
+    @Test fun series_with_season_in_the_name_matches_the_trend_title() {
+        // T-074: the caller passes the search title (without "Сезон N")
+        val b = board(mapOf("t46080" to 0.06), mapOf(TrendLogic.titleKey(true, "Маша и Медведь") to "t46080"))
+        val r = TrendLogic.rank(listOf(T(null, "Маша и Медведь. Сезон 5.")), b, true, { it.key }, { MatchLogic.searchTitle(it.title) }, { 1.0 }, 10)
+        assertEquals(1, r.size)
+    }
+
+    @Test fun newest_season_shows_when_several_seasons_match() {
+        val b = board(mapOf("t1" to 0.06), mapOf(TrendLogic.titleKey(true, "Невский") to "t1"))
+        val items = listOf(T(null, "Невский. Сезон 1"), T(null, "Невский. Сезон 5."), T(null, "Невский. Сезон 3"))
+        val r = TrendLogic.rank(items, b, true, { it.key }, { MatchLogic.searchTitle(it.title) }, { 1.0 }, 10) { MatchLogic.seasonOf(it.title) }
+        assertEquals(listOf("Невский. Сезон 5."), r.map { it.title })
+        // Without season numbers the first entry stays
+        val r2 = TrendLogic.rank(listOf(T(null, "Невский"), T(null, "Невский!")), b, true, { it.key }, { MatchLogic.searchTitle(it.title) }, { 1.0 }, 10) { MatchLogic.seasonOf(it.title) }
+        assertEquals(listOf("Невский"), r2.map { it.title })
+    }
 }

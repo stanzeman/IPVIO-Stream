@@ -170,7 +170,8 @@ object MetaRepo {
     private const val IMG = "https://image.tmdb.org/t/p/"
     private const val TTL = 30L * 24 * 3600 * 1000
     /** State of the match search. "Not found" from older states is retried with the better search. */
-    private const val MATCH_V = 2
+    // 3 (T-074): series names with "Сезон N" are searched without it, so their earlier "not found" is retried once
+    private const val MATCH_V = 3
 
     fun enabled() = !DemoMode.active && Config.TMDB_KEY.isNotBlank()
 
