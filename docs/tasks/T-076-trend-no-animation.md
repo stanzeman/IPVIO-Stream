@@ -5,7 +5,7 @@ Depends on: T-064 (top lists), T-073 (trend matching). Asked for by the maintain
 
 ## Goal
 A setting that keeps animated movies, animated series and anime out of "Top 10 today", "Trending" and the big picture
-(slideshow) of the home screen and the Movies/Series tabs. Default off.
+(slideshow) of the home screen and the Movies/Series tabs. Default on.
 
 ## Change
 - `TrendLogic.kt`: `isAnimation(genreIds, group)`: TMDB genre 16 ("Animation", anime included) or a provider category
@@ -13,7 +13,7 @@ A setting that keeps animated movies, animated series and anime out of "Top 10 t
   titles without TMDB data are caught too (the video portal has "мультфильмы", "мультсериалы", "Аниме").
 - `HomeScreen.kt`: with the option on, such titles are left out before ranking the top lists (the list fills up with the
   next titles) and out of the newest titles of the big picture. The option is part of the home cache key.
-- `Store.kt`: `AppSettings.trendNoAnimation`, new key `trend_no_animation` (default false) in the existing settings file.
+- `Store.kt`: `AppSettings.trendNoAnimation`, new key `trend_no_animation` (default true, as the maintainer asked) in the existing settings file.
 - `HomeLayout.kt`: switch on Settings > "Customize home" (German key "Startseite anpassen"); `DictEn1.kt`: English text.
 
 ## Risks
@@ -25,7 +25,7 @@ A setting that keeps animated movies, animated series and anime out of "Top 10 t
 - Pure-Kotlin JUnit run without Gradle: 801 tests OK. `HomeScreen.kt`, `Store.kt`, `HomeLayout.kt` not compiled here.
 
 ## Manual test steps
-1. Settings > Customize home: switch "No cartoons and anime in the Top 10 and big picture" on.
+1. Settings > Customize home: "No cartoons and anime in the Top 10 and big picture" is on (default).
 2. Home, Movies, Series: the top rows and the big picture show no "Маша и Медведь", no anime; the lists still have 10 titles
    if enough others trend.
 3. Categories "мультфильмы" and search still show them. Switch off: they return.

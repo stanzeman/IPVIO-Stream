@@ -46,7 +46,7 @@ object AppSettings {
     // T-075: on by default (also combines the seasons of the video portal)
     var mergeSeasons by mutableStateOf(true)
     /** T-076: no cartoons and anime in the top lists and the big picture of the home screen. */
-    var trendNoAnimation by mutableStateOf(false)
+    var trendNoAnimation by mutableStateOf(true)
     var gridCols by mutableIntStateOf(4)
     var gridRows by mutableIntStateOf(3)
     var cardW by mutableIntStateOf(150)
@@ -101,7 +101,7 @@ object AppSettings {
         // Default: provider categories; automatic genres only if chosen (setting or view "Categories")
         ipvioFilter = p.getBoolean("ipvio_filter", false)
         mergeSeasons = p.getBoolean("merge_seasons", true)
-        trendNoAnimation = p.getBoolean("trend_no_animation", false)
+        trendNoAnimation = p.getBoolean("trend_no_animation", true)
         gridCols = p.getInt("grid_cols", 6).coerceIn(3, 10)
         gridRows = p.getInt("grid_rows", 3).coerceIn(2, 8)
         cardW = p.getInt("card_w", 150).coerceIn(110, 220)
