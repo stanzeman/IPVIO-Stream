@@ -56,6 +56,9 @@ object RemoteHub {
             }
         }
         s.onList = { name, bytes -> main.post { appCtx?.let { ListImportApply.run(it, name, bytes) } } }
+        // Trakt sign-in from the phone page (T-031): the TV keeps the verifier and exchanges the code
+        s.traktStart = { TraktSignIn.start() }
+        s.traktFinish = { code, state -> appCtx?.let { TraktSignIn.finish(it, code, state) } ?: TraktAuth.Outcome.REJECTED }
         s.api = { name, q ->
             // The phone opened the page or used it: close the QR card on the TV (it would otherwise stay in front of the player).
             // "state" is polled all the time and must not count.
@@ -88,7 +91,7 @@ object RemoteHub {
 
     /** Live channel for the phone: like [itemJson] plus favorite flag and the running show (from the loaded XMLTV, no network). */
     private fun liveJson(i: Item): String {
-        val cur = Epg.current(Xmltv.forChannel(i.tvgId))
+        val cur = Epg.current(Xmltv.forItem(i))
         return RemoteLogic.live(itemJson(i), Library.isFav(i.id), cur?.title, cur?.start ?: 0L, cur?.end ?: 0L)
     }
 
@@ -111,12 +114,12 @@ object RemoteHub {
                 val live = PrivateCats.visible(all).filter { it.kind == Kind.LIVE }
                 // Channels whose guide is in the loaded XMLTV
                 for (c in live) {
-                    if (!Xmltv.has(c.tvgId)) continue
-                    for (e in Xmltv.forChannel(c.tvgId)) if (ProgSearchLogic.matches(e.title, text)) hits.add(ProgSearchLogic.Hit(c.id, c.title, e.title, e.start, e.end))
+                    if (!Xmltv.hasItem(c)) continue
+                    for (e in Xmltv.forItem(c)) if (ProgSearchLogic.matches(e.title, text)) hits.add(ProgSearchLogic.Hit(c.id, c.title, e.title, e.start, e.end))
                 }
                 // Xtream channels without XMLTV guide: short guide per channel (Epg.now caches it for 2 minutes).
                 // At most XTREAM_FETCH_PER_REQUEST channels are fetched per request, so the first search can be partial.
-                val xt = live.filter { !Xmltv.has(it.tvgId) && Epg.supported(it) }
+                val xt = live.filter { !Xmltv.hasItem(it) && Epg.supported(it) }
                 val need = xt.filter { Epg.peek(it) == null }.take(ProgSearchLogic.XTREAM_FETCH_PER_REQUEST)
                 if (need.isNotEmpty()) runCatching {
                     runBlocking { withTimeoutOrNull(9_000) { need.map { async { Epg.now(it) } }.awaitAll() } }

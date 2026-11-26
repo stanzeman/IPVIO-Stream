@@ -211,7 +211,7 @@ private fun AppContent() {
     val ctx = LocalContext.current
     remember {
         AppSettings.init(ctx); WatchStore.init(ctx); History.init(ctx); Library.init(ctx); QualityStore.init(ctx); PrivateCats.init(ctx)
-        PlaybackPrefs.init(ctx); PlayerSync.init(ctx); loadWishboxTexts(); DeadLinks.init(ctx); ChannelLists.init(ctx); Reminders.init(ctx); Reminders.schedule(ctx)
+        PlaybackPrefs.init(ctx); PlayerSync.init(ctx); AudioLevel.init(ctx); loadWishboxTexts(); DeadLinks.init(ctx); ChannelLists.init(ctx); Reminders.init(ctx); Reminders.schedule(ctx)
         // W-010b: live sync of favorites and history (silent; only when Google Drive is connected)
         LiveSync.start(ctx); 0
     }
@@ -247,6 +247,12 @@ private fun AppContent() {
     val searchList = PlaylistStore.channels
     LaunchedEffect(searchList) {
         withContext(Dispatchers.Default) { runCatching { SearchCache.build(PrivateCats.visible(searchList)) } }
+    }
+    // T-031: Trakt history and watchlist into the app once the playlist is there (at most every 6 hours, needs a sign-in).
+    // Waits 8 s so the first screens and the playlist refresh get the CPU and the network first.
+    val traktReady = searchList.isNotEmpty() && !PlaylistStore.loading
+    LaunchedEffect(traktReady) {
+        if (traktReady) { kotlinx.coroutines.delay(8_000); runCatching { TraktSync.autoSync(ctx) } }
     }
     // New app version on GitHub? Check silently once a day; a find appears in the bell at the top right.
     LaunchedEffect(Unit) {
@@ -513,7 +519,7 @@ private fun AppContent() {
             ) }
             c != null -> Box(Modifier.fillMaxSize().screenEnter()) { CategoriesScreen(
                 c, tab,
-                onPick = { name, list, sort -> browse = BrowseState(BrowseReq(name, list, sort)) },
+                onPick = { name, list, sort, genre -> browse = BrowseState(BrowseReq(name, list, sort, genre)) },
                 onOpen = open,
                 onBack = { cats = null },
                 onGoTab = { if (it != MenuLogic.EPG) cats = null; goTab(it) }
