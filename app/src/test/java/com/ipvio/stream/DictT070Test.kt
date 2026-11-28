@@ -1,33 +1,34 @@
 package com.ipvio.stream
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** T-070: translations of "most watched channels". */
+/** T-070: every text of "Device performance" is translated into every language of the app. */
 class DictT070Test {
-    private fun tr(s: String, code: String): String {
+    private fun keys(block: String) = block.lineSequence().filter { it.contains('¦') }.map { it.substringBefore('¦') }.toList()
+
+    @Test
+    fun everyLanguageHasEveryRow() {
+        val main = keys(DictT070)
+        assertEquals(5, main.size)
+        for (line in DictT070.lineSequence().filter { it.contains('¦') }) assertEquals(line.substringBefore('¦'), 9, line.split('¦').size)
+        for (col in listOf(DictT070Nl, DictT070Ar, DictT070Pl, DictT070Zh, DictT070Pt)) assertEquals(main, keys(col))
+    }
+
+    @Test
+    fun textsAreTranslated() {
         I18nCore.load(DictT070)
-        I18nCore.loadColumn(I18nCore.CODES.indexOf("nl"), DictT070Nl)
-        I18nCore.loadColumn(I18nCore.CODES.indexOf("ar"), DictT070Ar)
-        I18nCore.loadColumn(I18nCore.CODES.indexOf("pl"), DictT070Pl)
-        I18nCore.loadColumn(I18nCore.CODES.indexOf("zh"), DictT070Zh)
-        I18nCore.loadColumn(I18nCore.CODES.indexOf("pt"), DictT070Pt)
-        return I18nCore.translate(s, I18nCore.CODES.indexOf(code))
-    }
-
-    @Test fun english_labels() {
-        assertEquals("Most watched channels", tr("Meistgesehene Sender", "en"))
-        assertEquals("The channels you watch the longest", tr("Die Sender, die du am längsten schaust", "en"))
-    }
-
-    @Test fun every_row_has_all_columns() {
-        for (l in DictT070.lines().filter { it.contains('¦') }) assertEquals(l, 9, l.split('¦').size)
-        for (d in listOf(DictT070Nl, DictT070Ar, DictT070Pl, DictT070Zh, DictT070Pt)) for (l in d.lines().filter { it.contains('¦') }) assertEquals(l, 2, l.split('¦').size)
-    }
-
-    @Test fun other_columns() {
-        assertEquals("Meest bekeken zenders", tr("Meistgesehene Sender", "nl"))
-        assertEquals("Najczęściej oglądane kanały", tr("Meistgesehene Sender", "pl"))
-        assertEquals("Canais mais vistos", tr("Meistgesehene Sender", "pt"))
+        for ((code, col) in listOf("nl" to DictT070Nl, "ar" to DictT070Ar, "pl" to DictT070Pl, "zh" to DictT070Zh, "pt" to DictT070Pt))
+            I18nCore.loadColumn(I18nCore.CODES.indexOf(code), col)
+        assertEquals("Device performance", I18nCore.translate("Geräteleistung", 1))
+        assertEquals("Weak device", I18nCore.translate("Schwaches Gerät", 1))
+        assertEquals("Strong device", I18nCore.translate("Starkes Gerät", 1))
+        for (li in 1 until I18nCore.CODES.size) for (k in keys(DictT070)) {
+            val t = I18nCore.translate(k, li)
+            assertTrue(I18nCore.CODES[li] + ": " + k, t.isNotBlank())
+            assertNotEquals(I18nCore.CODES[li] + ": " + k, k, t)
+        }
     }
 }

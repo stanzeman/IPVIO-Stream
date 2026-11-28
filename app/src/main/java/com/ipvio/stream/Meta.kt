@@ -47,7 +47,9 @@ data class Meta(
     /** Series: date of the latest episode ("2026-11-20", T-063), null = not known yet. */
     val lastAir: String? = null,
     /** When [lastAir] was asked for at TMDB (0 = never), see [SeriesAirLogic.due]. */
-    val lastAirTs: Long = 0L
+    val lastAirTs: Long = 0L,
+    /** Language of the trailer video (TMDB iso_639_1), null = unknown. */
+    val trailerLang: String? = null
 ) {
     /** Rating for sorting and filtering (0 to 10): first IMDb, then Rotten Tomatoes, then TMDB, last the provider's value. */
     fun score(): Double? =
@@ -274,7 +276,7 @@ object MetaRepo {
             j.put("poster", m.poster); j.put("backdrop", m.backdrop); j.put("overview", m.overview)
             j.put("rating", m.rating); j.put("year", m.year)
             j.put("genres", m.genres.joinToString("|")); j.put("runtime", m.runtime)
-            j.put("trailer", m.trailerKey); j.put("imdbId", m.imdbId)
+            j.put("trailer", m.trailerKey); j.put("trailerLang", m.trailerLang); j.put("imdbId", m.imdbId)
             j.put("imdbRating", m.imdbRating); j.put("rt", m.rtRating); j.put("ext", m.extended)
             j.put("gids", m.genreIds.joinToString(",")); j.put("lang", m.lang); j.put("votes", m.votes)
             j.put("countries", m.countries.joinToString(",")); j.put("ui", m.uiLang)
@@ -306,7 +308,8 @@ object MetaRepo {
                 uiLang = j.optString("ui", "de"),
                 checked = j.optBoolean("chk"),
                 age = j.str("age"), ageChecked = j.optBoolean("agec"),
-                lastAir = j.str("la"), lastAirTs = j.optLong("lat"), ageMin = j.optInt("am", AgeRatingLogic.NOT_ASKED)
+                lastAir = j.str("la"), lastAirTs = j.optLong("lat"), ageMin = j.optInt("am", AgeRatingLogic.NOT_ASKED),
+                trailerLang = j.str("trailerLang")
             )
         } catch (e: Exception) {
             null
@@ -506,15 +509,17 @@ object MetaRepo {
                 o.optJSONArray("episode_run_time")?.let { if (it.length() > 0) it.getInt(0) else null }
             else o.optInt("runtime").takeIf { it > 0 }
             val imdb = if (b.isTv) o.optJSONObject("external_ids")?.str("imdb_id") else o.str("imdb_id")
-            var trailer: String? = null
+            // Trailer in the title-info language (T-061) if TMDB has one, otherwise English, otherwise any (TrailerLogic.pick)
+            val vids = ArrayList<TrailerLogic.Video>()
             o.optJSONObject("videos")?.optJSONArray("results")?.let { v ->
                 for (x in 0 until v.length()) {
                     val e = v.getJSONObject(x)
-                    if (e.optString("site") == "YouTube" && e.optString("type") == "Trailer") {
-                        trailer = e.optString("key"); break
-                    }
+                    vids.add(TrailerLogic.Video(e.optString("key"), e.optString("site"), e.optString("type"),
+                        e.optString("iso_639_1").takeIf { it.isNotBlank() && it != "null" }, e.optBoolean("official")))
                 }
             }
+            val chosen = TrailerLogic.pick(vids, Lang.metaCode())
+            val trailer: String? = chosen?.key
             var ov = o.str("overview")?.takeIf { it.isNotBlank() }
             if (ov == null && Lang.metaCode() != "en") {
                 // TMDB has no text in this language: fetch the English text as a fallback (never keep the text of another language)
@@ -525,7 +530,7 @@ object MetaRepo {
             val age = if (needAge) AgeRatingLogic.pick(byCountry, country) else b.age
             m = b.copy(ageMin = if (needAge) AgeRatingLogic.strictest(byCountry, country) else b.ageMin,
                 overview = ov ?: b.overview.takeIf { b.uiLang == Lang.metaCode() }, genres = genres, runtime = runtime,
-                trailerKey = trailer, imdbId = imdb, uiLang = Lang.metaCode(), checked = true, age = age, ageChecked = needAge || b.ageChecked,
+                trailerKey = trailer, trailerLang = chosen?.lang, imdbId = imdb, uiLang = Lang.metaCode(), checked = true, age = age, ageChecked = needAge || b.ageChecked,
                 lastAir = if (b.isTv) o.str("last_air_date") ?: b.lastAir else b.lastAir, lastAirTs = if (b.isTv) System.currentTimeMillis() else b.lastAirTs)
         } catch (e: Exception) {
         }
